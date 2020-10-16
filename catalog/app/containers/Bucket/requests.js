@@ -1051,6 +1051,34 @@ export const getRevisionData = async ({
   }
 }
 
+export async function loadManifest({ s3, bucket, name, revision = 'latest' }) {
+  try {
+    const { hash } = await loadRevisionHash({ s3, bucket, name, id: revision })
+    const manifestKey = `${MANIFESTS_PREFIX}${hash}`
+    // TODO: head request first
+    // const h = await s3.headObject({ Bucket: bucket, Key: manifestKey }).promise()
+    // check h.ContentLength
+    const m = await s3.getObject({ Bucket: bucket, Key: manifestKey }).promise()
+    const [header, ...rawEntries] = pipeThru(m.Body.toString('utf-8'))(
+      R.split('\n'),
+      R.map(tryParse),
+      R.filter(Boolean),
+    )
+    const meta = header.user_meta
+    const entries = pipeThru(rawEntries)(
+      R.map((e) => [
+        e.logical_key,
+        { hash: e.hash.value, physicalKey: e.physical_keys[0], size: e.size },
+      ]),
+      R.fromPairs,
+    )
+    return { meta, entries }
+  } catch (e) {
+    console.log('loadManifest err', e)
+    throw e
+  }
+}
+
 const s3Select = ({
   s3,
   ExpressionType = 'SQL',

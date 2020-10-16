@@ -23,6 +23,7 @@ import { readableBytes, readableQuantity } from 'utils/string'
 import usePrevious from 'utils/usePrevious'
 
 import Pagination from './Pagination'
+import { useUpdateDialog } from './UpdateDialog'
 import { displayError } from './errors'
 import * as requests from './requests'
 
@@ -437,12 +438,31 @@ export default function PackageRevisions({
   })
   const countsData = useCountsData({ bucket, name })
 
+  const updateDialog = useUpdateDialog({ bucket, name })
+
   return (
     <M.Box pb={{ xs: 0, sm: 5 }} mx={{ xs: -2, sm: 0 }}>
-      <M.Box pt={{ xs: 2, sm: 3 }} pb={{ xs: 2, sm: 1 }} px={{ xs: 2, sm: 0 }}>
+      {updateDialog.render()}
+
+      <M.Box
+        pt={{ xs: 2, sm: 3 }}
+        pb={{ xs: 2, sm: 1 }}
+        px={{ xs: 2, sm: 0 }}
+        display="flex"
+      >
         <M.Typography variant="h5" ref={scrollRef}>
           {name}
         </M.Typography>
+        <M.Box flexGrow={1} />
+        <M.Button
+          variant="contained"
+          color="primary"
+          style={{ marginTop: -3, marginBottom: -3 }}
+          onClick={updateDialog.open}
+          startIcon={<M.Icon>add</M.Icon>}
+        >
+          Push revision
+        </M.Button>
       </M.Box>
 
       {revisionCountData.case({
