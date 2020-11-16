@@ -22,8 +22,8 @@ import parseSearch from 'utils/parseSearch'
 import { readableBytes, readableQuantity } from 'utils/string'
 import usePrevious from 'utils/usePrevious'
 
+import { usePackageUpdateDialog } from './PackageUpdateDialog'
 import Pagination from './Pagination'
-import { useUpdateDialog } from './UpdateDialog'
 import { displayError } from './errors'
 import * as requests from './requests'
 
@@ -155,6 +155,7 @@ function RevisionLayout({ link, msg, meta, hash, stats, counts }) {
   const t = M.useTheme()
   const xs = M.useMediaQuery(t.breakpoints.down('xs'))
   const sm = M.useMediaQuery(t.breakpoints.down('sm'))
+  // eslint-disbale-next-line no-nested-ternary
   const sparklineW = xs ? 176 : sm ? 300 : 400
   const sparklineH = xs ? 32 : 48
   return (
@@ -438,7 +439,7 @@ export default function PackageRevisions({
   })
   const countsData = useCountsData({ bucket, name })
 
-  const updateDialog = useUpdateDialog({ bucket, name })
+  const updateDialog = usePackageUpdateDialog({ bucket, name })
 
   return (
     <M.Box pb={{ xs: 0, sm: 5 }} mx={{ xs: -2, sm: 0 }}>

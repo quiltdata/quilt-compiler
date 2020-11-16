@@ -663,7 +663,7 @@ const getWorkflowApiParam = R.cond([
   [R.T, R.identity],
 ])
 
-function UploadDialog({ bucket, open, workflowsConfig, onClose, refresh }) {
+function PackageCreateDialog({ bucket, open, workflowsConfig, onClose, refresh }) {
   const s3 = AWS.S3.use()
   const req = APIConnector.use()
   const { urls } = NamedRoutes.use()
@@ -991,13 +991,13 @@ function UploadDialog({ bucket, open, workflowsConfig, onClose, refresh }) {
   )
 }
 
-export default function UploadDialogWrapper({ bucket, open, onClose, refresh }) {
+export default function PackageCreateDialogWrapper({ bucket, open, onClose, refresh }) {
   const s3 = AWS.S3.use()
   const data = useData(requests.workflowsList, { s3, bucket })
 
   return data.case({
     Ok: (workflowsConfig) => (
-      <UploadDialog
+      <PackageCreateDialog
         {...{
           bucket,
           open,
@@ -1012,6 +1012,7 @@ export default function UploadDialogWrapper({ bucket, open, onClose, refresh }) 
       console.error(error)
       return null
     },
+    // TODO: show some progress indicator, e.g. skeleton or spinner
     _: () => null,
   })
 }

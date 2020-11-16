@@ -709,7 +709,7 @@ function useManifestData({ bucket, name }) {
   return Data.use(requests.loadManifest, { s3, bucket, name })
 }
 
-export function UpdateDialog({ bucket, name, open, onClose }) {
+export function PackageUpdateDialog({ bucket, name, open, onClose }) {
   const s3 = AWS.S3.use()
   const req = APIConnector.use()
   const { urls } = NamedRoutes.use()
@@ -1009,7 +1009,7 @@ export function UpdateDialog({ bucket, name, open, onClose }) {
   )
 }
 
-export function useUpdateDialog({ bucket, name }) {
+export function usePackageUpdateDialog({ bucket, name }) {
   const [isOpen, setOpen] = React.useState(false)
 
   const open = React.useCallback(() => {
@@ -1021,11 +1021,11 @@ export function useUpdateDialog({ bucket, name }) {
   }, [setOpen])
 
   const render = React.useCallback(
-    () => <UpdateDialog {...{ bucket, name, open: isOpen, onClose: close }} />,
+    () => <PackageUpdateDialog {...{ bucket, name, open: isOpen, onClose: close }} />,
     [bucket, name, isOpen, close],
   )
 
   return React.useMemo(() => ({ open, close, render }), [open, close, render])
 }
 
-export const use = useUpdateDialog
+export const use = usePackageUpdateDialog

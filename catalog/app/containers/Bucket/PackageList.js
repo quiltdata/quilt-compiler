@@ -22,8 +22,8 @@ import { readableQuantity } from 'utils/string'
 import useDebouncedInput from 'utils/useDebouncedInput'
 import usePrevious from 'utils/usePrevious'
 
+import PackageCreateDialog from './PackageCreateDialog'
 import Pagination from './Pagination'
-import UploadDialog from './UploadDialog'
 import { displayError } from './errors'
 import * as requests from './requests'
 
@@ -391,7 +391,9 @@ export default function PackageList({
 
   return (
     <>
-      <UploadDialog {...{ bucket, refresh, open: uploadOpen, onClose: closeUpload }} />
+      <PackageCreateDialog
+        {...{ bucket, refresh, open: uploadOpen, onClose: closeUpload }}
+      />
       {totalCountData.case({
         _: () => (
           <M.Box pb={{ xs: 0, sm: 5 }} mx={{ xs: -2, sm: 0 }}>
