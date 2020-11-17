@@ -7,9 +7,9 @@ import { useDropzone } from 'react-dropzone'
 import * as RF from 'react-final-form'
 import { Link } from 'react-router-dom'
 import * as M from '@material-ui/core'
-import * as Lab from '@material-ui/lab'
 
 import * as APIConnector from 'utils/APIConnector'
+import AsyncResult from 'utils/AsyncResult'
 import * as AWS from 'utils/AWS'
 import * as Data from 'utils/Data'
 import Delay from 'utils/Delay'
@@ -18,33 +18,17 @@ import StyledLink from 'utils/StyledLink'
 import pipeThru from 'utils/pipeThru'
 import * as s3paths from 'utils/s3paths'
 import { readableBytes } from 'utils/string'
+import tagged from 'utils/tagged'
 import useMemoEq from 'utils/useMemoEq'
 import * as validators from 'utils/validators'
 
+import * as PD from './PackageDialog'
+import * as ERRORS from './errors'
 import * as requests from './requests'
 
 // const MAX_SIZE = 1000 * 1000 * 1000 // 1GB
 
 const getNormalizedPath = (f) => (f.path.startsWith('/') ? f.path.substring(1) : f.path)
-
-function Field({ input, meta, errors, label, ...rest }) {
-  const error = meta.submitFailed && meta.error
-  const validating = meta.submitFailed && meta.validating
-  const props = {
-    error: !!error,
-    label: (
-      <>
-        {error ? errors[error] || error : label}
-        {validating && <M.CircularProgress size={13} style={{ marginLeft: 8 }} />}
-      </>
-    ),
-    disabled: meta.submitting || meta.submitSucceeded,
-    InputLabelProps: { shrink: true },
-    ...input,
-    ...rest,
-  }
-  return <M.TextField {...props} />
-}
 
 const TYPE_ORDER = ['added', 'modified', 'deleted', 'unchanged']
 
@@ -194,11 +178,6 @@ const useFilesInputStyles = M.makeStyles((t) => ({
     marginTop: t.spacing(1),
   },
 }))
-
-function FilesInputPlaceholder() {
-  // TODO
-  return <M.CircularProgress />
-}
 
 function FilesInput({ input, meta, uploads, setUploads, previous, errors = {} }) {
   const classes = useFilesInputStyles()
@@ -417,262 +396,9 @@ function FilesInput({ input, meta, uploads, setUploads, previous, errors = {} })
   )
 }
 
-const tryParse = (v) => {
-  try {
-    return JSON.parse(v)
-  } catch (e) {
-    return v
-  }
-}
-
-const isParsable = (v) => {
-  try {
-    JSON.parse(v)
-    return true
-  } catch (e) {
-    return false
-  }
-}
-
-const tryUnparse = (v) =>
-  typeof v === 'string' && !isParsable(v) ? v : JSON.stringify(v)
-
-const fieldsToText = R.pipe(
-  R.filter((f) => !!f.key.trim()),
-  R.map((f) => [f.key, tryParse(f.value)]),
-  R.fromPairs,
-  (x) => JSON.stringify(x, null, 2),
-)
-
-const objToFields = R.pipe(
-  R.defaultTo({}),
-  Object.entries,
-  R.map(([key, value]) => ({ key, value: tryUnparse(value) })),
-)
-
-const textToFields = R.pipe((t) => JSON.parse(t), objToFields)
-
-function getMetaValue(value) {
-  if (!value) return undefined
-
-  const pairs =
-    value.mode === 'json'
-      ? pipeThru(value.text || '{}')((t) => JSON.parse(t), R.toPairs)
-      : (value.fields || []).map((f) => [f.key, tryParse(f.value)])
-
-  return pipeThru(pairs)(
-    R.filter(([k]) => !!k.trim()),
-    R.fromPairs,
-    R.when(R.isEmpty, () => undefined),
-  )
-}
-
-function validateMeta(value) {
-  if (!value) return
-  if (value.mode === 'json') {
-    // eslint-disable-next-line consistent-return
-    return validators.jsonObject(value.text)
-  }
-}
-
-const useMetaInputStyles = M.makeStyles((t) => ({
-  root: {
-    marginTop: t.spacing(3),
-  },
-  header: {
-    alignItems: 'center',
-    display: 'flex',
-    height: 24,
-  },
-  btn: {
-    fontSize: 11,
-    height: 24,
-    paddingBottom: 0,
-    paddingLeft: 7,
-    paddingRight: 7,
-    paddingTop: 0,
-  },
-  json: {
-    marginTop: t.spacing(1),
-  },
-  jsonInput: {
-    fontFamily: t.typography.monospace.fontFamily,
-    '&::placeholder': {
-      fontFamily: t.typography.fontFamily,
-    },
-  },
-  add: {
-    marginTop: t.spacing(2),
-  },
-  row: {
-    alignItems: 'center',
-    display: 'flex',
-    marginTop: t.spacing(1),
-  },
-  sep: {
-    ...t.typography.body1,
-    marginLeft: t.spacing(1),
-    marginRight: t.spacing(1),
-  },
-  key: {
-    flexBasis: 100,
-    flexGrow: 1,
-  },
-  value: {
-    flexBasis: 100,
-    flexGrow: 2,
-  },
-}))
-
-const EMPTY_FIELD = { key: '', value: '' }
-
 function MetaInputPlaceholder() {
   // TODO
   return <M.CircularProgress />
-}
-
-// TODO: warn on duplicate keys
-function MetaInput({ input, meta, previous }) {
-  const classes = useMetaInputStyles()
-  const initial = React.useMemo(() => {
-    const fields = objToFields(previous)
-    return { fields, text: fieldsToText(fields), mode: 'kv' }
-  }, [previous])
-  const value = input.value || initial
-  const error = meta.submitFailed && meta.error
-  const disabled = meta.submitting || meta.submitSucceeded
-  const onInputChange = input.onChange
-
-  const changeMode = (mode) => {
-    if (disabled) return
-    onInputChange({ ...value, mode })
-  }
-
-  const changeFields = (newFields) => {
-    if (disabled) return
-    const fields = typeof newFields === 'function' ? newFields(value.fields) : newFields
-    const text = fieldsToText(fields)
-    onInputChange({ ...value, fields, text })
-  }
-
-  const changeText = (text) => {
-    if (disabled) return
-    let fields
-    try {
-      fields = textToFields(text)
-    } catch (e) {
-      fields = value.fields
-    }
-    onInputChange({ ...value, fields, text })
-  }
-
-  const handleModeChange = (e, m) => {
-    if (!m) return
-    changeMode(m)
-  }
-
-  const handleKeyChange = (i) => (e) => {
-    changeFields(R.assocPath([i, 'key'], e.target.value))
-  }
-
-  const handleValueChange = (i) => (e) => {
-    changeFields(R.assocPath([i, 'value'], e.target.value))
-  }
-
-  const addField = () => {
-    changeFields(R.append(EMPTY_FIELD))
-  }
-
-  const rmField = (i) => () => {
-    changeFields(R.pipe(R.remove(i, 1), R.when(R.isEmpty, R.append(EMPTY_FIELD))))
-  }
-
-  const handleTextChange = (e) => {
-    changeText(e.target.value)
-  }
-
-  return (
-    <div className={classes.root}>
-      <div className={classes.header}>
-        {/* eslint-disable-next-line no-nested-ternary */}
-        <M.Typography color={disabled ? 'textSecondary' : error ? 'error' : undefined}>
-          Metadata
-        </M.Typography>
-        <M.Box flexGrow={1} />
-        <Lab.ToggleButtonGroup value={value.mode} exclusive onChange={handleModeChange}>
-          <Lab.ToggleButton value="kv" className={classes.btn} disabled={disabled}>
-            Key : Value
-          </Lab.ToggleButton>
-          <Lab.ToggleButton value="json" className={classes.btn} disabled={disabled}>
-            JSON
-          </Lab.ToggleButton>
-        </Lab.ToggleButtonGroup>
-      </div>
-      {value.mode === 'kv' ? (
-        <>
-          {value.fields.map((f, i) => (
-            // eslint-disable-next-line react/no-array-index-key
-            <div key={i} className={classes.row}>
-              <M.TextField
-                className={classes.key}
-                onChange={handleKeyChange(i)}
-                value={f.key}
-                placeholder="Key"
-                disabled={disabled}
-              />
-              <div className={classes.sep}>:</div>
-              <M.TextField
-                className={classes.value}
-                onChange={handleValueChange(i)}
-                value={f.value}
-                placeholder="Value"
-                disabled={disabled}
-              />
-              <M.IconButton
-                size="small"
-                onClick={rmField(i)}
-                edge="end"
-                disabled={disabled}
-              >
-                <M.Icon>close</M.Icon>
-              </M.IconButton>
-            </div>
-          ))}
-          <M.Button
-            variant="outlined"
-            size="small"
-            onClick={addField}
-            startIcon={<M.Icon>add</M.Icon>}
-            className={classes.add}
-            disabled={disabled}
-          >
-            Add field
-          </M.Button>
-        </>
-      ) : (
-        <M.TextField
-          variant="outlined"
-          size="small"
-          className={classes.json}
-          value={value.text}
-          onChange={handleTextChange}
-          placeholder="Enter JSON metadata if necessary"
-          error={!!error}
-          helperText={
-            !!error &&
-            {
-              jsonObject: 'Metadata must be a valid JSON object',
-            }[error]
-          }
-          fullWidth
-          multiline
-          rowsMax={10}
-          InputProps={{ classes: { input: classes.jsonInput } }}
-          disabled={disabled}
-        />
-      )}
-    </div>
-  )
 }
 
 const getTotalProgress = R.pipe(
@@ -690,42 +416,38 @@ const getTotalProgress = R.pipe(
   }),
 )
 
-async function hashFile(file) {
-  if (!window.crypto || !window.crypto.subtle || !window.crypto.subtle.digest) return
-  try {
-    const buf = await file.arrayBuffer()
-    const hashBuf = await window.crypto.subtle.digest('SHA-256', buf)
-    // eslint-disable-next-line consistent-return
-    return Array.from(new Uint8Array(hashBuf))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-  } catch (e) {
-    // return undefined on error
-  }
-}
-
-function useManifestData({ bucket, name }) {
-  const s3 = AWS.S3.use()
-  return Data.use(requests.loadManifest, { s3, bucket, name })
-}
-
-export function PackageUpdateDialog({ bucket, name, open, onClose }) {
+function DialogForm({
+  bucket,
+  name,
+  onClose,
+  onSuccess,
+  refresh, // TODO
+  manifest,
+  workflowsConfig,
+}) {
   const s3 = AWS.S3.use()
   const req = APIConnector.use()
-  const { urls } = NamedRoutes.use()
   const [uploads, setUploads] = React.useState({})
-  const [success, setSuccess] = React.useState(null)
+  const nameValidator = PD.useNameValidator()
 
-  const manifestData = useManifestData({ bucket, name })
+  React.useEffect(() => {
+    console.log('mount PackageUpdateDialog')
+    return () => {
+      console.log('unmount PackageUpdateDialog')
+    }
+  }, [])
 
+  /*
   const reset = (form) => () => {
     form.restart()
-    setSuccess(null)
     setUploads({})
+    nameValidator.inc()
   }
+  */
 
   const handleClose = ({ submitting = false } = {}) => () => {
     if (submitting) return
+    // TODO: pass this outside somehow
     // TODO: ask to abort if in progress
     onClose()
   }
@@ -733,7 +455,7 @@ export function PackageUpdateDialog({ bucket, name, open, onClose }) {
   const totalProgress = getTotalProgress(uploads)
 
   // eslint-disable-next-line consistent-return
-  const onSubmit = async ({ msg, files, meta }) => {
+  const onSubmit = async ({ msg, files, meta, workflow }) => {
     console.log('onSubmit', { msg, files, meta })
 
     const toUpload = Object.entries(files.added).map(([path, file]) => ({ path, file }))
@@ -765,7 +487,7 @@ export function PackageUpdateDialog({ bucket, name, open, onClose }) {
           return
         }
         const resultP = upload.promise()
-        const hashP = hashFile(file)
+        const hashP = PD.hashFile(file)
         try {
           // eslint-disable-next-line consistent-return
           return { result: await resultP, hash: await hashP }
@@ -807,24 +529,18 @@ export function PackageUpdateDialog({ bucket, name, open, onClose }) {
       R.fromPairs,
     )
 
-    const contents = manifestData.case({
-      Ok: R.pipe(
-        R.prop('entries'),
-        R.omit(Object.keys(files.deleted)),
-        R.mergeLeft(newEntries),
-        R.toPairs,
-        R.map(([path, data]) => ({
-          logical_key: path,
-          physical_key: data.physicalKey,
-          size: data.size,
-          hash: data.hash,
-        })),
-        R.sortBy(R.prop('logical_key')),
-      ),
-      _: () => {
-        throw new Error('invariant violation') // TODO: better error
-      },
-    })
+    const contents = pipeThru(manifest.entries)(
+      R.omit(Object.keys(files.deleted)),
+      R.mergeLeft(newEntries),
+      R.toPairs,
+      R.map(([path, data]) => ({
+        logical_key: path,
+        physical_key: data.physicalKey,
+        size: data.size,
+        hash: data.hash,
+      })),
+      R.sortBy(R.prop('logical_key')),
+    )
 
     try {
       const res = await req({
@@ -835,12 +551,20 @@ export function PackageUpdateDialog({ bucket, name, open, onClose }) {
           registry: `s3://${bucket}`,
           message: msg,
           contents,
-          meta: getMetaValue(meta),
+          meta: PD.getMetaValue(meta),
+          workflow: PD.getWorkflowApiParam(workflow.slug),
         },
       })
-      setSuccess({ name, revision: res.timestamp })
+      if (refresh) {
+        // wait for ES index to receive the new package data
+        await new Promise((resolve) => setTimeout(resolve, PD.ES_LAG))
+        refresh()
+      }
+      onSuccess({ name, revision: res.timestamp })
     } catch (e) {
+      // eslint-disable-next-line no-console
       console.log('error creating manifest', e)
+      // TODO: see if we should use e.message
       // TODO: handle specific cases?
       return { [FORM_ERROR]: 'Error creating manifest' }
     }
@@ -856,173 +580,310 @@ export function PackageUpdateDialog({ bucket, name, open, onClose }) {
         submitError,
         hasValidationErrors,
         form,
+        values,
       }) => (
-        <M.Dialog
-          open={open}
-          onClose={handleClose({ submitting })}
-          fullWidth
-          scroll="body"
-          onExited={reset(form)}
-        >
-          <M.DialogTitle>
-            {success ? 'Push complete' : 'Push package revision'}
-          </M.DialogTitle>
-          {success ? (
-            <>
-              <M.DialogContent style={{ paddingTop: 0 }}>
-                <M.Typography>
-                  Package revision{' '}
-                  <StyledLink
-                    to={urls.bucketPackageTree(bucket, success.name, success.revision)}
-                  >
-                    {success.name}@{success.revision}
-                  </StyledLink>{' '}
-                  successfully created
+        <>
+          <M.DialogTitle>Push package revision</M.DialogTitle>
+          <M.DialogContent style={{ paddingTop: 0 }}>
+            <form onSubmit={handleSubmit}>
+              <RF.Field
+                component={PD.Field}
+                name="name"
+                label="Name"
+                placeholder="Enter a package name"
+                validate={validators.composeAsync(
+                  validators.required,
+                  nameValidator.validate,
+                )}
+                validateFields={['name']}
+                errors={{
+                  required: 'Enter a package name',
+                  invalid: 'Invalid package name',
+                }}
+                margin="normal"
+                fullWidth
+              />
+
+              <RF.Field
+                component={PD.Field}
+                name="msg"
+                label="Commit message"
+                placeholder="Enter a commit message"
+                validate={validators.required}
+                validateFields={['msg']}
+                errors={{
+                  required: 'Enter a commit message',
+                }}
+                fullWidth
+                margin="normal"
+              />
+
+              <RF.Field
+                component={FilesInput}
+                name="files"
+                validate={validators.nonEmpty}
+                validateFields={['files']}
+                errors={{
+                  nonEmpty: 'Add files to create a package',
+                }}
+                uploads={uploads}
+                setUploads={setUploads}
+                isEqual={R.equals}
+                previous={manifest.entries}
+                // initialValue={manifest.entries} //TODO
+              />
+
+              <PD.SchemaFetcher
+                schemaUrl={R.pathOr('', ['schema', 'url'], values.workflow)}
+              >
+                {AsyncResult.case({
+                  Ok: ({ responseError, schema, validate }) => (
+                    <RF.Field
+                      component={PD.MetaInput}
+                      name="meta"
+                      bucket={bucket}
+                      schema={schema}
+                      schemaError={responseError}
+                      validate={validate}
+                      isEqual={R.equals}
+                      // TODO: use initialValue
+                      previous={manifest.meta}
+                      // initialValue={manifest.meta}
+                    />
+                  ),
+                  _: () => <MetaInputPlaceholder />,
+                })}
+              </PD.SchemaFetcher>
+
+              <RF.Field
+                component={PD.WorkflowInput}
+                name="workflow"
+                workflowsConfig={workflowsConfig}
+                initialValue={PD.defaultWorkflowFromConfig(workflowsConfig)}
+                validateFields={['meta', 'workflow']}
+              />
+
+              <input type="submit" style={{ display: 'none' }} />
+            </form>
+          </M.DialogContent>
+          <M.DialogActions>
+            {submitting && (
+              <Delay ms={200} alwaysRender>
+                {(ready) => (
+                  <M.Fade in={ready}>
+                    <M.Box flexGrow={1} display="flex" alignItems="center" pl={2}>
+                      <M.CircularProgress
+                        size={24}
+                        variant={
+                          totalProgress.percent < 100 ? 'determinate' : 'indeterminate'
+                        }
+                        value={
+                          totalProgress.percent < 100
+                            ? totalProgress.percent * 0.9
+                            : undefined
+                        }
+                      />
+                      <M.Box pl={1} />
+                      <M.Typography variant="body2" color="textSecondary">
+                        {totalProgress.percent < 100
+                          ? 'Uploading files'
+                          : 'Writing manifest'}
+                      </M.Typography>
+                    </M.Box>
+                  </M.Fade>
+                )}
+              </Delay>
+            )}
+
+            {!submitting && (!!error || !!submitError) && (
+              <M.Box flexGrow={1} display="flex" alignItems="center" pl={2}>
+                <M.Icon color="error">error_outline</M.Icon>
+                <M.Box pl={1} />
+                <M.Typography variant="body2" color="error">
+                  {error || submitError}
                 </M.Typography>
-              </M.DialogContent>
-              <M.DialogActions>
-                <M.Button onClick={handleClose()}>Close</M.Button>
-                <M.Button onClick={reset(form)}>New push</M.Button>
-                <M.Button
-                  component={Link}
-                  to={urls.bucketPackageTree(bucket, success.name, success.revision)}
-                  variant="contained"
-                  color="primary"
-                >
-                  Browse
-                </M.Button>
-              </M.DialogActions>
-            </>
-          ) : (
-            <>
-              <M.DialogContent style={{ paddingTop: 0 }}>
-                <form onSubmit={handleSubmit}>
-                  <M.TextField label="Name" disabled value={name} fullWidth />
+              </M.Box>
+            )}
 
-                  <RF.Field
-                    component={Field}
-                    name="msg"
-                    label="Commit message"
-                    placeholder="Enter a commit message"
-                    validate={validators.required}
-                    errors={{
-                      required: 'Enter a commit message',
-                    }}
-                    fullWidth
-                    margin="normal"
-                  />
-
-                  {manifestData.case({
-                    Ok: (m) => (
-                      <RF.Field
-                        component={FilesInput}
-                        name="files"
-                        validate={validators.nonEmpty}
-                        errors={{
-                          nonEmpty: 'Add files to create a package',
-                        }}
-                        uploads={uploads}
-                        setUploads={setUploads}
-                        isEqual={R.equals}
-                        previous={m.entries}
-                      />
-                    ),
-                    _: () => <FilesInputPlaceholder />,
-                    // TODO: handle err
-                  })}
-
-                  {manifestData.case({
-                    Ok: (m) => (
-                      <RF.Field
-                        component={MetaInput}
-                        name="meta"
-                        validate={validateMeta}
-                        isEqual={R.equals}
-                        previous={m.meta}
-                      />
-                    ),
-                    _: () => <MetaInputPlaceholder />,
-                    // TODO: handle err
-                  })}
-
-                  <input type="submit" style={{ display: 'none' }} />
-                </form>
-              </M.DialogContent>
-              <M.DialogActions>
-                {submitting && (
-                  <Delay ms={200} alwaysRender>
-                    {(ready) => (
-                      <M.Fade in={ready}>
-                        <M.Box flexGrow={1} display="flex" alignItems="center" pl={2}>
-                          <M.CircularProgress
-                            size={24}
-                            variant={
-                              totalProgress.percent < 100
-                                ? 'determinate'
-                                : 'indeterminate'
-                            }
-                            value={
-                              totalProgress.percent < 100
-                                ? totalProgress.percent * 0.9
-                                : undefined
-                            }
-                          />
-                          <M.Box pl={1} />
-                          <M.Typography variant="body2" color="textSecondary">
-                            {totalProgress.percent < 100
-                              ? 'Uploading files'
-                              : 'Writing manifest'}
-                          </M.Typography>
-                        </M.Box>
-                      </M.Fade>
-                    )}
-                  </Delay>
-                )}
-
-                {!submitting && (!!error || !!submitError) && (
-                  <M.Box flexGrow={1} display="flex" alignItems="center" pl={2}>
-                    <M.Icon color="error">error_outline</M.Icon>
-                    <M.Box pl={1} />
-                    <M.Typography variant="body2" color="error">
-                      {error || submitError}
-                    </M.Typography>
-                  </M.Box>
-                )}
-
-                <M.Button onClick={handleClose({ submitting })} disabled={submitting}>
-                  Cancel
-                </M.Button>
-                <M.Button
-                  onClick={handleSubmit}
-                  variant="contained"
-                  color="primary"
-                  disabled={submitting || (submitFailed && hasValidationErrors)}
-                >
-                  Push
-                </M.Button>
-              </M.DialogActions>
-            </>
-          )}
-        </M.Dialog>
+            <M.Button onClick={handleClose({ submitting })} disabled={submitting}>
+              Cancel
+            </M.Button>
+            <M.Button
+              onClick={handleSubmit}
+              variant="contained"
+              color="primary"
+              disabled={submitting || (submitFailed && hasValidationErrors)}
+            >
+              Push
+            </M.Button>
+          </M.DialogActions>
+        </>
       )}
     </RF.Form>
   )
 }
 
-export function usePackageUpdateDialog({ bucket, name }) {
+function DialogPlaceholder({ close }) {
+  return (
+    <>
+      <M.DialogTitle>Push package revision</M.DialogTitle>
+      <M.DialogContent style={{ paddingTop: 0 }}>
+        <M.Typography>TODO: Skeletons here</M.Typography>
+      </M.DialogContent>
+      <M.DialogActions>
+        <M.Button onClick={close}>Cancel</M.Button>
+        <M.Button variant="contained" color="primary" disabled>
+          Push
+        </M.Button>
+      </M.DialogActions>
+    </>
+  )
+}
+
+const errorDisplay = R.cond([
+  [
+    R.is(ERRORS.ManifestTooLarge),
+    (e) => (
+      <M.Typography>
+        Package manifest is too large ({readableBytes(e.actualSize)})
+      </M.Typography>
+    ),
+  ],
+  // TODO: better error messages
+  [R.T, () => <M.Typography>Unexpeceted error</M.Typography>],
+])
+
+function DialogError({ error, close }) {
+  return (
+    <>
+      <M.DialogTitle>Push package revision</M.DialogTitle>
+      <M.DialogContent style={{ paddingTop: 0 }}>{errorDisplay(error)}</M.DialogContent>
+      <M.DialogActions>
+        <M.Button onClick={close}>Cancel</M.Button>
+        <M.Button variant="contained" color="primary" disabled>
+          Push
+        </M.Button>
+      </M.DialogActions>
+    </>
+  )
+}
+
+function DialogSuccess({ bucket, name, revision, close }) {
+  const { urls } = NamedRoutes.use()
+  return (
+    <>
+      <M.DialogTitle>Push complete</M.DialogTitle>
+      <M.DialogContent style={{ paddingTop: 0 }}>
+        <M.Typography>
+          Package revision{' '}
+          <StyledLink to={urls.bucketPackageTree(bucket, name, revision)}>
+            {name}@{revision}
+          </StyledLink>{' '}
+          successfully created
+        </M.Typography>
+      </M.DialogContent>
+      <M.DialogActions>
+        <M.Button onClick={close}>Close</M.Button>
+        <M.Button
+          component={Link}
+          to={urls.bucketPackageTree(bucket, name, revision)}
+          variant="contained"
+          color="primary"
+        >
+          Browse
+        </M.Button>
+      </M.DialogActions>
+    </>
+  )
+}
+
+const DialogState = tagged([
+  'Closed',
+  'Loading',
+  'Error',
+  'Form', // { manifest, workflowsConfig }
+  'Success', // { name, revision }
+])
+
+export function usePackageUpdateDialog({ bucket, name, revision }) {
+  const s3 = AWS.S3.use()
+
   const [isOpen, setOpen] = React.useState(false)
+  const [wasOpened, setWasOpened] = React.useState(false)
+  const [exited, setExited] = React.useState(!isOpen)
+  const [success, setSuccess] = React.useState(false)
+
+  const manifestData = Data.use(
+    requests.loadManifest,
+    { s3, bucket, name, revision },
+    { noAutoFetch: !wasOpened },
+  )
+  const workflowsData = Data.use(requests.workflowsList, { s3, bucket })
 
   const open = React.useCallback(() => {
     setOpen(true)
-  }, [setOpen])
+    setWasOpened(true)
+    setExited(false)
+  }, [setOpen, setWasOpened, setExited])
 
   const close = React.useCallback(() => {
     setOpen(false)
+    setSuccess(false)
   }, [setOpen])
 
+  const handleExited = React.useCallback(() => {
+    setExited(true)
+  }, [setExited])
+
+  const state = React.useMemo(() => {
+    if (exited) return DialogState.Closed()
+    if (success) return DialogState.Success(success)
+    return workflowsData.case({
+      Ok: (workflowsConfig) =>
+        manifestData.case({
+          Ok: (manifest) => DialogState.Form({ manifest, workflowsConfig }),
+          Err: DialogState.Error,
+          _: DialogState.Loading,
+        }),
+      Err: DialogState.Error,
+      _: DialogState.Loading,
+    })
+  }, [exited, success, workflowsData, manifestData])
+
+  const stateCase = React.useCallback((cases) => DialogState.case(cases, state), [state])
+
   const render = React.useCallback(
-    () => <PackageUpdateDialog {...{ bucket, name, open: isOpen, onClose: close }} />,
-    [bucket, name, isOpen, close],
+    () => (
+      <M.Dialog
+        open={isOpen}
+        // onClose={handleClose({ submitting })} //TODO
+        onClose={close}
+        fullWidth
+        scroll="body"
+        onExited={handleExited}
+        // onExited={reset(form)} //TODO
+      >
+        {stateCase({
+          Closed: () => null,
+          Loading: () => <DialogPlaceholder close={close} />,
+          Error: (e) => <DialogError close={close} error={e} />,
+          Form: (props) => (
+            <DialogForm
+              {...{
+                bucket,
+                name,
+                onClose: close, // TODO
+                onSuccess: setSuccess,
+                ...props,
+                // TODO: refresh
+              }}
+            />
+          ),
+          Success: (props) => <DialogSuccess {...{ bucket, close, ...props }} />,
+        })}
+      </M.Dialog>
+    ),
+    [bucket, name, isOpen, close, stateCase, handleExited],
   )
 
   return React.useMemo(() => ({ open, close, render }), [open, close, render])

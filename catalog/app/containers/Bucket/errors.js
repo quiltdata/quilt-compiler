@@ -29,6 +29,16 @@ export class FileNotFound extends BucketError {}
 
 export class VersionNotFound extends BucketError {}
 
+export class ManifestTooLarge extends BucketError {
+  constructor(props) {
+    super(
+      `Package manifest at s3://${props.bucket}/${props.key} is too large: ${props.actualSize} (max size: ${props.maxSize})`,
+      props,
+    )
+  }
+}
+ManifestTooLarge.displayName = 'ManifestTooLarge'
+
 const WhenAuth = connect(
   createStructuredSelector({
     authenticated: Auth.selectors.authenticated,

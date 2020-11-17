@@ -1020,6 +1020,9 @@ export const loadRevisionHash = ({ s3, bucket, name, id }) =>
 // TODO: Preview endpoint only allows up to 512 lines right now. Increase it to 1000.
 const MAX_PACKAGE_ENTRIES = 500
 
+export const MANIFEST_MAX_SIZE = 10 * 1000 * 1000
+// export const MANIFEST_MAX_SIZE = 100 // debug
+
 export const getRevisionData = async ({
   s3,
   endpoint,
@@ -1051,13 +1054,27 @@ export const getRevisionData = async ({
   }
 }
 
-export async function loadManifest({ s3, bucket, name, revision = 'latest' }) {
+export async function loadManifest({
+  s3,
+  bucket,
+  name,
+  revision = 'latest',
+  maxSize = MANIFEST_MAX_SIZE,
+}) {
   try {
     const { hash } = await loadRevisionHash({ s3, bucket, name, id: revision })
     const manifestKey = `${MANIFESTS_PREFIX}${hash}`
-    // TODO: head request first
-    // const h = await s3.headObject({ Bucket: bucket, Key: manifestKey }).promise()
-    // check h.ContentLength
+    if (maxSize) {
+      const h = await s3.headObject({ Bucket: bucket, Key: manifestKey }).promise()
+      if (h.ContentLength > maxSize) {
+        throw new errors.ManifestTooLarge({
+          bucket,
+          key: manifestKey,
+          maxSize,
+          actualSize: h.ContentLength,
+        })
+      }
+    }
     const m = await s3.getObject({ Bucket: bucket, Key: manifestKey }).promise()
     const [header, ...rawEntries] = pipeThru(m.Body.toString('utf-8'))(
       R.split('\n'),
@@ -1074,7 +1091,11 @@ export async function loadManifest({ s3, bucket, name, revision = 'latest' }) {
     )
     return { meta, entries }
   } catch (e) {
-    console.log('loadManifest err', e)
+    if (e instanceof errors.ManifestTooLarge) throw e
+    // eslint-disable-next-line no-console
+    console.log('loadManifest error:')
+    // eslint-disable-next-line no-console
+    console.error(e)
     throw e
   }
 }
