@@ -30,14 +30,14 @@ function parseWorkflow(workflowSlug, workflow, data) {
   }
 }
 
-export const workflowNotAvaliable = Symbol('not available')
+export const workflowNotAvailable = Symbol('not available')
 
 export const workflowNotSelected = Symbol('not selected')
 
 function getNoWorkflow(data, hasConfig) {
   return {
     isDefault: !data.default_workflow,
-    slug: hasConfig ? workflowNotSelected : workflowNotAvaliable,
+    slug: hasConfig ? workflowNotSelected : workflowNotAvailable,
   }
 }
 

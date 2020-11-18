@@ -180,7 +180,7 @@ export const defaultWorkflowFromConfig = (cfg) =>
   cfg ? cfg.workflows.find((item) => item.isDefault) : null
 
 export const getWorkflowApiParam = R.cond([
-  [R.equals(requests.workflowNotAvaliable), R.always(undefined)],
+  [R.equals(requests.workflowNotAvailable), R.always(undefined)],
   [R.equals(requests.workflowNotSelected), R.always(null)],
   [R.T, R.identity],
 ])
