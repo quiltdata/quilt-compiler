@@ -1,10 +1,5 @@
-// import cx from 'classnames'
-// import pLimit from 'p-limit'
 import * as R from 'ramda'
 import * as React from 'react'
-// import { useDropzone } from 'react-dropzone'
-// import * as RF from 'react-final-form'
-// import { Link } from 'react-router-dom'
 import * as M from '@material-ui/core'
 import * as Lab from '@material-ui/lab'
 
@@ -15,17 +10,13 @@ import { useData } from 'utils/Data'
 import AsyncResult from 'utils/AsyncResult'
 import * as APIConnector from 'utils/APIConnector'
 import * as AWS from 'utils/AWS'
-// import Delay from 'utils/Delay'
-// import * as NamedRoutes from 'utils/NamedRoutes'
-// import StyledLink from 'utils/StyledLink'
 import pipeThru from 'utils/pipeThru'
-// import * as s3paths from 'utils/s3paths'
-// import { readableBytes } from 'utils/string'
 import * as validators from 'utils/validators'
 
 import * as requests from '../requests'
 import SelectWorkflow from './SelectWorkflow'
 
+export const MAX_SIZE = 1000 * 1000 * 1000 // 1GB
 export const ES_LAG = 3 * 1000
 
 export async function hashFile(file) {

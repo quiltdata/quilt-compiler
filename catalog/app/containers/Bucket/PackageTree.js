@@ -22,6 +22,7 @@ import * as s3paths from 'utils/s3paths'
 import Code from './Code'
 import * as FileView from './FileView'
 import { ListingItem, ListingWithLocalFiltering } from './Listing'
+import { usePackageUpdateDialog } from './PackageUpdateDialog'
 import Section from './Section'
 import Summary from './Summary'
 import renderPreview from './renderPreview'
@@ -241,7 +242,7 @@ function TopBar({ crumbs, children }) {
   )
 }
 
-function DirDisplay({ bucket, name, revision, path, crumbs }) {
+function DirDisplay({ bucket, name, revision, path, crumbs, refresh }) {
   const s3 = AWS.S3.use()
   const { apiGatewayEndpoint: endpoint, noDownload } = Config.use()
   const credentials = AWS.Credentials.use()
@@ -269,6 +270,21 @@ function DirDisplay({ bucket, name, revision, path, crumbs }) {
     (handle) => urls.bucketPackageTree(bucket, name, revision, handle.logicalKey),
     [urls, bucket, name, revision],
   )
+
+  const onExited = React.useCallback(
+    (res) => {
+      // when browsing 'latest' revision,
+      // refresh data if new revision of current package was pushed
+      if (revision === 'latest' && res && res.pushed && res.pushed.name === name) {
+        refresh()
+        return true
+      }
+      return false
+    },
+    [revision, name, refresh],
+  )
+
+  const updateDialog = usePackageUpdateDialog({ bucket, name, revision, onExited })
 
   return data.case({
     Ok: ({ objects, prefixes, meta }) => {
@@ -301,14 +317,28 @@ function DirDisplay({ bucket, name, revision, path, crumbs }) {
       }))
       return (
         <>
+          {updateDialog.render()}
           <TopBar crumbs={crumbs}>
+            <M.Button
+              variant="contained"
+              color="primary"
+              size="small"
+              style={{ marginTop: -3, marginBottom: -3, flexShrink: 0 }}
+              onClick={updateDialog.open}
+              startIcon={<M.Icon>add</M.Icon>}
+            >
+              Push revision
+            </M.Button>
             {!noDownload &&
               hashData.case({
                 Ok: ({ hash }) => (
-                  <FileView.ZipDownloadForm
-                    label="Download package"
-                    suffix={`package/${bucket}/${name}/${hash}`}
-                  />
+                  <>
+                    <M.Box ml={1} />
+                    <FileView.ZipDownloadForm
+                      label="Download package"
+                      suffix={`package/${bucket}/${name}/${hash}`}
+                    />
+                  </>
                 ),
                 _: () => null,
               })}
@@ -431,6 +461,7 @@ function FileDisplay({ bucket, name, revision, path, crumbs }) {
             if (e.code === 'Forbidden') {
               return renderError('Access Denied', "You don't have access to this object")
             }
+            // eslint-disable-next-line no-console
             console.error(e)
             return renderError('Error loading file', 'Something went wrong')
           },
@@ -455,6 +486,7 @@ function FileDisplay({ bucket, name, revision, path, crumbs }) {
       </Data>
     ),
     Err: (e) => {
+      // eslint-disable-next-line no-console
       console.error(e)
       return renderError(
         'Error loading file',
@@ -499,19 +531,31 @@ export default function PackageTree({
     ).concat(path.endsWith('/') ? Crumb.Sep(<>&nbsp;/</>) : [])
   }, [bucket, name, revision, path, urls])
 
+  const [key, setKey] = React.useState(1)
+
+  const refresh = React.useCallback(() => setKey(R.inc), [setKey])
+
   return (
     <FileView.Root>
-      {!!bucketCfg && <ExposeLinkedData {...{ bucketCfg, bucket, name, revision }} />}
+      {!!bucketCfg && (
+        <ExposeLinkedData
+          {...{ bucketCfg, bucket, name, revision }}
+          key={`links:${key}`}
+        />
+      )}
       <M.Typography variant="body1">
         <Link to={urls.bucketPackageDetail(bucket, name)} className={classes.name}>
           {name}
         </Link>
         {' @ '}
-        <RevisionInfo {...{ revision, bucket, name, path }} />
+        <RevisionInfo {...{ revision, bucket, name, path }} key={`revinfo:${key}`} />
       </M.Typography>
 
       {isDir ? (
-        <DirDisplay {...{ bucket, name, revision, path, crumbs }} />
+        <DirDisplay
+          {...{ bucket, name, revision, path, crumbs, refresh }}
+          key={`dir:${key}`}
+        />
       ) : (
         <FileDisplay {...{ bucket, name, revision, path, crumbs }} />
       )}

@@ -27,8 +27,6 @@ import * as PD from './PackageDialog'
 import * as ERRORS from './errors'
 import * as requests from './requests'
 
-// const MAX_SIZE = 1000 * 1000 * 1000 // 1GB
-
 const getNormalizedPath = (f) => (f.path.startsWith('/') ? f.path.substring(1) : f.path)
 
 const TYPE_ORDER = ['added', 'modified', 'deleted', 'unchanged']
@@ -180,27 +178,29 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   },
 }))
 
-function FilesInput({ input, meta, uploads, setUploads, previous, errors = {} }) {
+function FilesInput({ input, meta, uploads, setUploads, errors = {} }) {
   const classes = useFilesInputStyles()
 
-  const value = input.value || { added: {}, deleted: {} }
+  const value = input.value || { added: {}, deleted: {}, existing: {} }
   const disabled = meta.submitting || meta.submitSucceeded
   const error = meta.submitFailed && meta.error
 
   const onInputChange = input.onChange
 
-  // const totalSize = React.useMemo(() => value.reduce((sum, f) => sum + f.file.size, 0), [
-  // value,
-  // ])
+  const totalSize = React.useMemo(
+    () => Object.values(value.added).reduce((sum, f) => sum + f.size, 0),
+    [value.added],
+  )
 
-  // const warn = totalSize > MAX_SIZE
-  const warn = false
+  const warn = totalSize > PD.MAX_SIZE
 
   // eslint-disable-next-line no-nested-ternary
   const label = error
     ? errors[error] || error
     : warn
-    ? 'Total file size exceeds recommended maximum of 1GB'
+    ? `Total size of new files exceeds recommended maximum of ${readableBytes(
+        PD.MAX_SIZE,
+      )}`
     : 'Drop files here or click to browse'
 
   const pipeValue = useMemoEq([onInputChange, value], () => (...fns) =>
@@ -251,16 +251,16 @@ function FilesInput({ input, meta, uploads, setUploads, previous, errors = {} })
 
   const revertFiles = React.useCallback(() => {
     if (disabled) return
-    onInputChange({ added: {}, deleted: {} })
+    onInputChange(meta.initial)
     setUploads({})
-  }, [disabled, onInputChange, setUploads])
+  }, [disabled, onInputChange, setUploads, meta.initial])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop })
 
   const totalProgress = React.useMemo(() => getTotalProgress(uploads), [uploads])
 
-  const computedEntries = useMemoEq([previous, value], ([prev, { added, deleted }]) => {
-    const p1 = Object.entries(prev).map(([path, { size }]) => {
+  const computedEntries = useMemoEq(value, ({ added, deleted, existing }) => {
+    const p1 = Object.entries(existing).map(([path, { size }]) => {
       if (path in deleted) {
         return { type: 'deleted', path, size }
       }
@@ -271,7 +271,7 @@ function FilesInput({ input, meta, uploads, setUploads, previous, errors = {} })
       return { type: 'unchanged', path, size }
     })
     const p2 = Object.entries(added).reduce((acc, [path, { size }]) => {
-      if (path in prev) return acc
+      if (path in existing) return acc
       return acc.concat({ type: 'added', path, size })
     }, [])
     return R.sortBy((x) => [TYPE_ORDER.indexOf(x.type), x.path], p1.concat(p2))
@@ -303,7 +303,7 @@ function FilesInput({ input, meta, uploads, setUploads, previous, errors = {} })
           */}
         </div>
         <M.Box flexGrow={1} />
-        {(!R.isEmpty(value.deleted) || !R.isEmpty(value.added)) && (
+        {meta.dirty && (
           <M.Button
             onClick={revertFiles}
             disabled={disabled}
@@ -397,11 +397,6 @@ function FilesInput({ input, meta, uploads, setUploads, previous, errors = {} })
   )
 }
 
-function MetaInputPlaceholder() {
-  // TODO
-  return <M.CircularProgress />
-}
-
 const getTotalProgress = R.pipe(
   R.values,
   R.reduce(
@@ -422,7 +417,6 @@ function DialogForm({
   name: initialName,
   onClose,
   onSuccess,
-  refresh, // TODO
   manifest,
   workflowsConfig,
 }) {
@@ -439,6 +433,11 @@ function DialogForm({
     [manifest.meta],
   )
 
+  const initialFiles = React.useMemo(
+    () => ({ existing: manifest.entries, added: {}, deleted: {} }),
+    [manifest.entries],
+  )
+
   // TODO: rm this
   React.useEffect(() => {
     console.log('mount PackageUpdateDialog')
@@ -446,14 +445,6 @@ function DialogForm({
       console.log('unmount PackageUpdateDialog')
     }
   }, [])
-
-  /*
-  const reset = (form) => () => {
-    form.restart()
-    setUploads({})
-    nameValidator.inc()
-  }
-  */
 
   const handleClose = ({ submitting = false } = {}) => () => {
     if (submitting) return
@@ -466,8 +457,6 @@ function DialogForm({
 
   // eslint-disable-next-line consistent-return
   const onSubmit = async ({ name, msg, files, meta, workflow }) => {
-    console.log('onSubmit', { msg, files, meta })
-
     const toUpload = Object.entries(files.added).map(([path, file]) => ({ path, file }))
 
     const limit = pLimit(2)
@@ -539,7 +528,7 @@ function DialogForm({
       R.fromPairs,
     )
 
-    const contents = pipeThru(manifest.entries)(
+    const contents = pipeThru(files.existing)(
       R.omit(Object.keys(files.deleted)),
       R.mergeLeft(newEntries),
       R.toPairs,
@@ -548,6 +537,7 @@ function DialogForm({
         physical_key: data.physicalKey,
         size: data.size,
         hash: data.hash,
+        meta: data.meta,
       })),
       R.sortBy(R.prop('logical_key')),
     )
@@ -565,11 +555,6 @@ function DialogForm({
           workflow: PD.getWorkflowApiParam(workflow.slug),
         },
       })
-      if (refresh) {
-        // wait for ES index to receive the new package data
-        await new Promise((resolve) => setTimeout(resolve, PD.ES_LAG))
-        refresh()
-      }
       onSuccess({ name, revision: res.timestamp })
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -640,8 +625,7 @@ function DialogForm({
                 uploads={uploads}
                 setUploads={setUploads}
                 isEqual={R.equals}
-                previous={manifest.entries}
-                // initialValue={manifest.entries} //TODO
+                initialValue={initialFiles}
               />
 
               <PD.SchemaFetcher
@@ -660,7 +644,7 @@ function DialogForm({
                       initialValue={initialMeta}
                     />
                   ),
-                  _: () => <MetaInputPlaceholder />,
+                  _: () => <PD.MetaInputSkeleton />,
                 })}
               </PD.SchemaFetcher>
 
@@ -851,17 +835,19 @@ const DialogState = tagged([
   'Success', // { name, revision }
 ])
 
-export function usePackageUpdateDialog({ bucket, name, revision }) {
+export function usePackageUpdateDialog({ bucket, name, revision, onExited }) {
   const s3 = AWS.S3.use()
 
   const [isOpen, setOpen] = React.useState(false)
   const [wasOpened, setWasOpened] = React.useState(false)
   const [exited, setExited] = React.useState(!isOpen)
+  const [exitValue, setExitValue] = React.useState(null)
   const [success, setSuccess] = React.useState(false)
+  const [key, setKey] = React.useState(1)
 
   const manifestData = Data.use(
     requests.loadManifest,
-    { s3, bucket, name, revision },
+    { s3, bucket, name, revision, key },
     { noAutoFetch: !wasOpened },
   )
   const workflowsData = Data.use(requests.workflowsList, { s3, bucket })
@@ -875,11 +861,22 @@ export function usePackageUpdateDialog({ bucket, name, revision }) {
   const close = React.useCallback(() => {
     setOpen(false)
     setSuccess(false)
-  }, [setOpen])
+    setExitValue({ pushed: success })
+  }, [setOpen, setSuccess, success, setExitValue])
+
+  const refreshManifest = React.useCallback(() => {
+    setWasOpened(false)
+    setKey(R.inc)
+  }, [setWasOpened, setKey])
 
   const handleExited = React.useCallback(() => {
     setExited(true)
-  }, [setExited])
+    setExitValue(null)
+    if (onExited) {
+      const shouldRefreshManifest = onExited(exitValue)
+      if (shouldRefreshManifest) refreshManifest()
+    }
+  }, [setExited, setExitValue, onExited, exitValue, refreshManifest])
 
   const state = React.useMemo(() => {
     if (exited) return DialogState.Closed()
@@ -907,7 +904,6 @@ export function usePackageUpdateDialog({ bucket, name, revision }) {
         fullWidth
         scroll="body"
         onExited={handleExited}
-        // onExited={reset(form)} //TODO
       >
         {stateCase({
           Closed: () => null,
@@ -921,7 +917,6 @@ export function usePackageUpdateDialog({ bucket, name, revision }) {
                 onClose: close, // TODO
                 onSuccess: setSuccess,
                 ...props,
-                // TODO: refresh
               }}
             />
           ),

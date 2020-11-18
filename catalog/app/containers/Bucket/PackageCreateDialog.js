@@ -8,7 +8,6 @@ import * as RF from 'react-final-form'
 import { Link } from 'react-router-dom'
 import * as M from '@material-ui/core'
 
-import Skeleton from 'components/Skeleton'
 import { useData } from 'utils/Data'
 import AsyncResult from 'utils/AsyncResult'
 import * as APIConnector from 'utils/APIConnector'
@@ -23,8 +22,6 @@ import * as validators from 'utils/validators'
 
 import * as PD from './PackageDialog'
 import * as requests from './requests'
-
-const MAX_SIZE = 1000 * 1000 * 1000 // 1GB
 
 const ERRORS = {
   FILES_UPLOAD: { [FORM_ERROR]: 'Error uploading files' },
@@ -185,13 +182,13 @@ function FilesInput({
     value,
   ])
 
-  const warn = totalSize > MAX_SIZE
+  const warn = totalSize > PD.MAX_SIZE
 
   // eslint-disable-next-line no-nested-ternary
   const label = error
     ? errors[error] || error
     : warn
-    ? 'Total file size exceeds recommended maximum of 1GB'
+    ? `Total file size exceeds recommended maximum of ${readableBytes(PD.MAX_SIZE)}`
     : 'Drop files here or click to browse'
 
   // eslint-disable-next-line react-hooks/exhaustive-deps

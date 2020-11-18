@@ -1086,7 +1086,12 @@ export async function loadManifest({
     const entries = pipeThru(rawEntries)(
       R.map((e) => [
         e.logical_key,
-        { hash: e.hash.value, physicalKey: e.physical_keys[0], size: e.size },
+        {
+          hash: e.hash.value,
+          physicalKey: e.physical_keys[0],
+          size: e.size,
+          meta: e.meta,
+        },
       ]),
       R.fromPairs,
     )
