@@ -10,7 +10,7 @@ import * as Lab from '@material-ui/lab'
 
 import JsonEditor from 'components/JsonEditor'
 import { parseJSON, stringifyJSON, validateOnSchema } from 'components/JsonEditor/State'
-// import Skeleton from 'components/Skeleton'
+import Skeleton from 'components/Skeleton'
 import { useData } from 'utils/Data'
 import AsyncResult from 'utils/AsyncResult'
 import * as APIConnector from 'utils/APIConnector'
@@ -118,17 +118,16 @@ function mkMetaValidator(schema) {
   }
 }
 
-export function getMetaValue(value) {
-  if (!value) return undefined
-
-  const pairs = pipeThru(value.text || '{}')((t) => JSON.parse(t), R.toPairs)
-
-  return pipeThru(pairs)(
-    R.filter(([k]) => !!k.trim()),
-    R.fromPairs,
-    R.when(R.isEmpty, () => undefined),
-  )
-}
+export const getMetaValue = (value) =>
+  value
+    ? pipeThru(value.text || '{}')(
+        (t) => JSON.parse(t),
+        R.toPairs,
+        R.filter(([k]) => !!k.trim()),
+        R.fromPairs,
+        R.when(R.isEmpty, () => undefined),
+      )
+    : undefined
 
 export function Field({ input, meta, errors, label, ...rest }) {
   const error = meta.submitFailed && meta.error
@@ -202,9 +201,6 @@ const useMetaInputStyles = M.makeStyles((t) => ({
     paddingLeft: 7,
     paddingRight: 7,
     paddingTop: 0,
-  },
-  json: {
-    marginTop: t.spacing(1),
   },
   jsonInput: {
     fontFamily: t.typography.monospace.fontFamily,
@@ -306,7 +302,6 @@ export function MetaInput({ schemaError, input, meta, schema }) {
         <M.TextField
           variant="outlined"
           size="small"
-          className={classes.json}
           value={value.text}
           onChange={handleTextChange}
           placeholder="Enter JSON metadata if necessary"
@@ -356,4 +351,33 @@ export function SchemaFetcher({ children, schemaUrl }) {
     [data],
   )
   return children(res)
+}
+
+export function FormSkeleton({ animate }) {
+  return (
+    <>
+      <Skeleton {...{ height: 48, mt: 2, mb: 1, animate }} />
+      <Skeleton {...{ height: 48, mt: 2, mb: 1, animate }} />
+      <M.Box mt={3}>
+        <Skeleton {...{ height: 24, width: 64, animate }} />
+        <Skeleton {...{ height: 140, mt: 2, animate }} />
+      </M.Box>
+      <M.Box mt={3}>
+        <M.Box display="flex" mb={2}>
+          <Skeleton {...{ height: 24, width: 64, animate }} />
+          <M.Box flexGrow={1} />
+          <Skeleton {...{ height: 24, width: 64, animate }} />
+        </M.Box>
+        <M.Box display="flex">
+          <Skeleton {...{ height: 32, width: 200, animate }} />
+          <Skeleton {...{ height: 32, ml: 0.5, flexGrow: 1, animate }} />
+        </M.Box>
+        <M.Box display="flex" mt={0.5}>
+          <Skeleton {...{ height: 32, width: 200, animate }} />
+          <Skeleton {...{ height: 32, ml: 0.5, flexGrow: 1, animate }} />
+        </M.Box>
+      </M.Box>
+      <Skeleton {...{ height: 80, mt: 2, mb: 3, animate }} />
+    </>
+  )
 }

@@ -1021,7 +1021,6 @@ export const loadRevisionHash = ({ s3, bucket, name, id }) =>
 const MAX_PACKAGE_ENTRIES = 500
 
 export const MANIFEST_MAX_SIZE = 10 * 1000 * 1000
-// export const MANIFEST_MAX_SIZE = 100 // debug
 
 export const getRevisionData = async ({
   s3,
@@ -1064,6 +1063,7 @@ export async function loadManifest({
   try {
     const { hash } = await loadRevisionHash({ s3, bucket, name, id: revision })
     const manifestKey = `${MANIFESTS_PREFIX}${hash}`
+
     if (maxSize) {
       const h = await s3.headObject({ Bucket: bucket, Key: manifestKey }).promise()
       if (h.ContentLength > maxSize) {
@@ -1075,6 +1075,7 @@ export async function loadManifest({
         })
       }
     }
+
     const m = await s3.getObject({ Bucket: bucket, Key: manifestKey }).promise()
     const [header, ...rawEntries] = pipeThru(m.Body.toString('utf-8'))(
       R.split('\n'),

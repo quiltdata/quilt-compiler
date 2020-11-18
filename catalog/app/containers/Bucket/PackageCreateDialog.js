@@ -36,7 +36,7 @@ const getNormalizedPath = (f) => (f.path.startsWith('/') ? f.path.substring(1) :
 
 const useFilesInputStyles = M.makeStyles((t) => ({
   root: {
-    marginTop: t.spacing(2),
+    marginTop: t.spacing(3),
   },
   header: {
     alignItems: 'center',
@@ -57,6 +57,7 @@ const useFilesInputStyles = M.makeStyles((t) => ({
     color: t.palette.warning.dark,
   },
   dropzoneContainer: {
+    marginTop: t.spacing(2),
     position: 'relative',
   },
   dropzone: {
@@ -66,7 +67,6 @@ const useFilesInputStyles = M.makeStyles((t) => ({
     cursor: 'pointer',
     display: 'flex',
     flexDirection: 'column',
-    marginTop: t.spacing(1),
     minHeight: 140,
     outline: 'none',
     overflow: 'hidden',

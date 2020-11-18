@@ -7,6 +7,7 @@ import { useDropzone } from 'react-dropzone'
 import * as RF from 'react-final-form'
 import { Link } from 'react-router-dom'
 import * as M from '@material-ui/core'
+import { fade } from '@material-ui/core/styles'
 
 import * as APIConnector from 'utils/APIConnector'
 import AsyncResult from 'utils/AsyncResult'
@@ -34,7 +35,7 @@ const TYPE_ORDER = ['added', 'modified', 'deleted', 'unchanged']
 
 const useFilesInputStyles = M.makeStyles((t) => ({
   root: {
-    marginTop: t.spacing(2),
+    marginTop: t.spacing(3),
   },
   header: {
     alignItems: 'center',
@@ -55,6 +56,7 @@ const useFilesInputStyles = M.makeStyles((t) => ({
     color: t.palette.warning.dark,
   },
   dropzoneContainer: {
+    marginTop: t.spacing(2),
     position: 'relative',
   },
   dropzone: {
@@ -64,7 +66,6 @@ const useFilesInputStyles = M.makeStyles((t) => ({
     cursor: 'pointer',
     display: 'flex',
     flexDirection: 'column',
-    marginTop: t.spacing(1),
     minHeight: 140,
     outline: 'none',
     overflow: 'hidden',
@@ -418,7 +419,7 @@ const getTotalProgress = R.pipe(
 
 function DialogForm({
   bucket,
-  name,
+  name: initialName,
   onClose,
   onSuccess,
   refresh, // TODO
@@ -430,6 +431,15 @@ function DialogForm({
   const [uploads, setUploads] = React.useState({})
   const nameValidator = PD.useNameValidator()
 
+  const initialMeta = React.useMemo(
+    () => ({
+      mode: 'kv',
+      text: JSON.stringify(manifest.meta || {}),
+    }),
+    [manifest.meta],
+  )
+
+  // TODO: rm this
   React.useEffect(() => {
     console.log('mount PackageUpdateDialog')
     return () => {
@@ -455,7 +465,7 @@ function DialogForm({
   const totalProgress = getTotalProgress(uploads)
 
   // eslint-disable-next-line consistent-return
-  const onSubmit = async ({ msg, files, meta, workflow }) => {
+  const onSubmit = async ({ name, msg, files, meta, workflow }) => {
     console.log('onSubmit', { msg, files, meta })
 
     const toUpload = Object.entries(files.added).map(([path, file]) => ({ path, file }))
@@ -602,6 +612,7 @@ function DialogForm({
                 }}
                 margin="normal"
                 fullWidth
+                initialValue={initialName}
               />
 
               <RF.Field
@@ -646,9 +657,7 @@ function DialogForm({
                       schemaError={responseError}
                       validate={validate}
                       isEqual={R.equals}
-                      // TODO: use initialValue
-                      previous={manifest.meta}
-                      // initialValue={manifest.meta}
+                      initialValue={initialMeta}
                     />
                   ),
                   _: () => <MetaInputPlaceholder />,
@@ -728,7 +737,7 @@ function DialogPlaceholder({ close }) {
     <>
       <M.DialogTitle>Push package revision</M.DialogTitle>
       <M.DialogContent style={{ paddingTop: 0 }}>
-        <M.Typography>TODO: Skeletons here</M.Typography>
+        <PD.FormSkeleton />
       </M.DialogContent>
       <M.DialogActions>
         <M.Button onClick={close}>Cancel</M.Button>
@@ -744,20 +753,57 @@ const errorDisplay = R.cond([
   [
     R.is(ERRORS.ManifestTooLarge),
     (e) => (
-      <M.Typography>
-        Package manifest is too large ({readableBytes(e.actualSize)})
-      </M.Typography>
+      <>
+        <M.Typography variant="h6" gutterBottom>
+          Package manifest too large
+        </M.Typography>
+        <M.Typography gutterBottom>
+          This package is not editable via the web UI&mdash;it cannot handle package
+          manifest that large ({readableBytes(e.actualSize)}).
+        </M.Typography>
+        <M.Typography>Please use Quilt CLI to edit this package.</M.Typography>
+      </>
     ),
   ],
-  // TODO: better error messages
-  [R.T, () => <M.Typography>Unexpeceted error</M.Typography>],
+  [
+    R.T,
+    () => (
+      <>
+        <M.Typography variant="h6" gutterBottom>
+          Unexpeceted error
+        </M.Typography>
+        <M.Typography gutterBottom>
+          Something went wrong. Please contact Quilt support.
+        </M.Typography>
+        <M.Typography>You can also use Quilt CLI to edit this package.</M.Typography>
+      </>
+    ),
+  ],
 ])
 
+const useDialogErrorStyles = M.makeStyles((t) => ({
+  overlay: {
+    background: fade(t.palette.common.white, 0.4),
+    bottom: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    left: 0,
+    padding: t.spacing(2, 3, 4),
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+}))
+
 function DialogError({ error, close }) {
+  const classes = useDialogErrorStyles()
   return (
     <>
       <M.DialogTitle>Push package revision</M.DialogTitle>
-      <M.DialogContent style={{ paddingTop: 0 }}>{errorDisplay(error)}</M.DialogContent>
+      <M.DialogContent style={{ paddingTop: 0, position: 'relative' }}>
+        <PD.FormSkeleton animate={false} />
+        <div className={classes.overlay}>{errorDisplay(error)}</div>
+      </M.DialogContent>
       <M.DialogActions>
         <M.Button onClick={close}>Cancel</M.Button>
         <M.Button variant="contained" color="primary" disabled>
