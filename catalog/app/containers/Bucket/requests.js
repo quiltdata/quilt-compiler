@@ -1082,7 +1082,6 @@ export async function loadManifest({
       R.map(tryParse),
       R.filter(Boolean),
     )
-    const meta = header.user_meta
     const entries = pipeThru(rawEntries)(
       R.map((e) => [
         e.logical_key,
@@ -1095,7 +1094,7 @@ export async function loadManifest({
       ]),
       R.fromPairs,
     )
-    return { meta, entries }
+    return { entries, meta: header.user_meta, workflow: header.workflow }
   } catch (e) {
     if (e instanceof errors.ManifestTooLarge) throw e
     // eslint-disable-next-line no-console

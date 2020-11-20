@@ -379,17 +379,23 @@ function FilesInput({ input, meta, uploads, setUploads, errors = {} }) {
         </div>
         {disabled && (
           <div className={classes.lock}>
-            <div className={classes.progressContainer}>
-              <M.CircularProgress
-                size={80}
-                value={totalProgress.percent}
-                variant="determinate"
-              />
-              <div className={classes.progressPercent}>{totalProgress.percent}%</div>
-            </div>
-            <div className={classes.progressSize}>
-              {readableBytes(totalProgress.loaded)} / {readableBytes(totalProgress.total)}
-            </div>
+            {!!totalProgress.total && (
+              <>
+                <div className={classes.progressContainer}>
+                  <M.CircularProgress
+                    size={80}
+                    value={totalProgress.percent}
+                    variant="determinate"
+                  />
+                  <div className={classes.progressPercent}>{totalProgress.percent}%</div>
+                </div>
+                <div className={classes.progressSize}>
+                  {readableBytes(totalProgress.loaded)}
+                  {' / '}
+                  {readableBytes(totalProgress.total)}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -408,15 +414,16 @@ const getTotalProgress = R.pipe(
   ),
   (p) => ({
     ...p,
-    percent: p.total ? Math.floor((p.loaded / p.total) * 100) : undefined,
+    percent: p.total ? Math.floor((p.loaded / p.total) * 100) : 100,
   }),
 )
 
 function DialogForm({
   bucket,
   name: initialName,
-  onClose,
+  close,
   onSuccess,
+  setSubmitting,
   manifest,
   workflowsConfig,
 }) {
@@ -438,22 +445,17 @@ function DialogForm({
     [manifest.entries],
   )
 
-  // TODO: rm this
-  React.useEffect(() => {
-    console.log('mount PackageUpdateDialog')
-    return () => {
-      console.log('unmount PackageUpdateDialog')
+  const initialWorkflow = React.useMemo(() => {
+    const slug = manifest.workflow && manifest.workflow.id
+    // reuse workflow from previous revision if it's still present in the config
+    if (slug) {
+      const w = workflowsConfig.workflows.find(R.propEq('slug', slug))
+      if (w) return w
     }
-  }, [])
+    return PD.defaultWorkflowFromConfig(workflowsConfig)
+  }, [manifest, workflowsConfig])
 
-  const handleClose = ({ submitting = false } = {}) => () => {
-    if (submitting) return
-    // TODO: pass this outside somehow
-    // TODO: ask to abort if in progress
-    onClose()
-  }
-
-  const totalProgress = getTotalProgress(uploads)
+  const totalProgress = React.useMemo(() => getTotalProgress(uploads), [uploads])
 
   // eslint-disable-next-line consistent-return
   const onSubmit = async ({ name, msg, files, meta, workflow }) => {
@@ -565,8 +567,17 @@ function DialogForm({
     }
   }
 
+  const onSubmitWrapped = async (...args) => {
+    setSubmitting(true)
+    try {
+      return await onSubmit(...args)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
-    <RF.Form onSubmit={onSubmit}>
+    <RF.Form onSubmit={onSubmitWrapped}>
       {({
         handleSubmit,
         submitting,
@@ -652,7 +663,7 @@ function DialogForm({
                 component={PD.WorkflowInput}
                 name="workflow"
                 workflowsConfig={workflowsConfig}
-                initialValue={PD.defaultWorkflowFromConfig(workflowsConfig)}
+                initialValue={initialWorkflow}
                 validateFields={['meta', 'workflow']}
               />
 
@@ -698,7 +709,7 @@ function DialogForm({
               </M.Box>
             )}
 
-            <M.Button onClick={handleClose({ submitting })} disabled={submitting}>
+            <M.Button onClick={close} disabled={submitting}>
               Cancel
             </M.Button>
             <M.Button
@@ -843,6 +854,7 @@ export function usePackageUpdateDialog({ bucket, name, revision, onExited }) {
   const [exited, setExited] = React.useState(!isOpen)
   const [exitValue, setExitValue] = React.useState(null)
   const [success, setSuccess] = React.useState(false)
+  const [submitting, setSubmitting] = React.useState(false)
   const [key, setKey] = React.useState(1)
 
   const manifestData = Data.use(
@@ -859,10 +871,10 @@ export function usePackageUpdateDialog({ bucket, name, revision, onExited }) {
   }, [setOpen, setWasOpened, setExited])
 
   const close = React.useCallback(() => {
+    if (submitting) return
     setOpen(false)
-    setSuccess(false)
     setExitValue({ pushed: success })
-  }, [setOpen, setSuccess, success, setExitValue])
+  }, [submitting, setOpen, success, setExitValue])
 
   const refreshManifest = React.useCallback(() => {
     setWasOpened(false)
@@ -871,12 +883,13 @@ export function usePackageUpdateDialog({ bucket, name, revision, onExited }) {
 
   const handleExited = React.useCallback(() => {
     setExited(true)
+    setSuccess(false)
     setExitValue(null)
     if (onExited) {
       const shouldRefreshManifest = onExited(exitValue)
       if (shouldRefreshManifest) refreshManifest()
     }
-  }, [setExited, setExitValue, onExited, exitValue, refreshManifest])
+  }, [setExited, setSuccess, setExitValue, onExited, exitValue, refreshManifest])
 
   const state = React.useMemo(() => {
     if (exited) return DialogState.Closed()
@@ -899,7 +912,6 @@ export function usePackageUpdateDialog({ bucket, name, revision, onExited }) {
     () => (
       <M.Dialog
         open={isOpen}
-        // onClose={handleClose({ submitting })} //TODO
         onClose={close}
         fullWidth
         scroll="body"
@@ -914,8 +926,9 @@ export function usePackageUpdateDialog({ bucket, name, revision, onExited }) {
               {...{
                 bucket,
                 name,
-                onClose: close, // TODO
+                close,
                 onSuccess: setSuccess,
+                setSubmitting,
                 ...props,
               }}
             />
