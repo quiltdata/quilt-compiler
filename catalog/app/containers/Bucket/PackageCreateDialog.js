@@ -185,11 +185,13 @@ function FilesInput({
   const warn = totalSize > PD.MAX_SIZE
 
   // eslint-disable-next-line no-nested-ternary
-  const label = error
-    ? errors[error] || error
-    : warn
-    ? `Total file size exceeds recommended maximum of ${readableBytes(PD.MAX_SIZE)}`
-    : 'Drop files here or click to browse'
+  const label = error ? (
+    errors[error] || error
+  ) : warn ? (
+    <>Total file size exceeds recommended maximum of {readableBytes(PD.MAX_SIZE)}</>
+  ) : (
+    'Drop files here or click to browse'
+  )
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const onDrop = React.useCallback(

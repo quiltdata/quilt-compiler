@@ -53,6 +53,14 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   headerFilesWarn: {
     color: t.palette.warning.dark,
   },
+  headerFilesAdded: {
+    color: t.palette.success.main,
+    marginLeft: t.spacing(0.5),
+  },
+  headerFilesDeleted: {
+    color: t.palette.error.main,
+    marginLeft: t.spacing(0.5),
+  },
   dropzoneContainer: {
     marginTop: t.spacing(2),
     position: 'relative',
@@ -195,13 +203,15 @@ function FilesInput({ input, meta, uploads, setUploads, errors = {} }) {
   const warn = totalSize > PD.MAX_SIZE
 
   // eslint-disable-next-line no-nested-ternary
-  const label = error
-    ? errors[error] || error
-    : warn
-    ? `Total size of new files exceeds recommended maximum of ${readableBytes(
-        PD.MAX_SIZE,
-      )}`
-    : 'Drop files here or click to browse'
+  const label = error ? (
+    errors[error] || error
+  ) : warn ? (
+    <>
+      Total size of new files exceeds recommended maximum of {readableBytes(PD.MAX_SIZE)}
+    </>
+  ) : (
+    'Drop files here or click to browse'
+  )
 
   const pipeValue = useMemoEq([onInputChange, value], () => (...fns) =>
     R.pipe(...fns, onInputChange)(value),
@@ -277,6 +287,17 @@ function FilesInput({ input, meta, uploads, setUploads, errors = {} }) {
     return R.sortBy((x) => [TYPE_ORDER.indexOf(x.type), x.path], p1.concat(p2))
   })
 
+  const stats = useMemoEq(value, ({ added, deleted, existing }) => ({
+    added: Object.values(added).reduce(
+      (acc, f) => R.evolve({ count: R.inc, size: R.add(f.size) }, acc),
+      { count: 0, size: 0 },
+    ),
+    deleted: Object.keys(deleted).reduce(
+      (acc, path) => R.evolve({ count: R.inc, size: R.add(existing[path].size) }, acc),
+      { count: 0, size: 0 },
+    ),
+  }))
+
   return (
     <div className={classes.root}>
       <div className={classes.header}>
@@ -293,14 +314,24 @@ function FilesInput({ input, meta, uploads, setUploads, errors = {} }) {
           )}
         >
           Files
-          {/* TODO: granular stats
-          !!value.length && (
+          {(!!stats.added.count || !!stats.deleted.count) && (
             <>
-              : {value.length} ({readableBytes(totalSize)})
+              :
+              {!!stats.added.count && (
+                <span className={classes.headerFilesAdded}>
+                  {' +'}
+                  {stats.added.count} ({readableBytes(stats.added.size)})
+                </span>
+              )}
+              {!!stats.deleted.count && (
+                <span className={classes.headerFilesDeleted}>
+                  {' -'}
+                  {stats.deleted.count} ({readableBytes(stats.deleted.size)})
+                </span>
+              )}
               {warn && <M.Icon style={{ marginLeft: 4 }}>error_outline</M.Icon>}
             </>
-          )
-          */}
+          )}
         </div>
         <M.Box flexGrow={1} />
         {meta.dirty && (

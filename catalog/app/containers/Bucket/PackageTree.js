@@ -18,6 +18,7 @@ import * as LinkedData from 'utils/LinkedData'
 import * as NamedRoutes from 'utils/NamedRoutes'
 import Link, { linkStyle } from 'utils/StyledLink'
 import * as s3paths from 'utils/s3paths'
+import usePrevious from 'utils/usePrevious'
 
 import Code from './Code'
 import * as FileView from './FileView'
@@ -242,7 +243,7 @@ function TopBar({ crumbs, children }) {
   )
 }
 
-function DirDisplay({ bucket, name, revision, path, crumbs, refresh }) {
+function DirDisplay({ bucket, name, revision, path, crumbs, onRevisionPush }) {
   const s3 = AWS.S3.use()
   const { apiGatewayEndpoint: endpoint, noDownload } = Config.use()
   const credentials = AWS.Credentials.use()
@@ -271,20 +272,17 @@ function DirDisplay({ bucket, name, revision, path, crumbs, refresh }) {
     [urls, bucket, name, revision],
   )
 
-  const onExited = React.useCallback(
-    (res) => {
-      // when browsing 'latest' revision,
-      // refresh data if new revision of current package was pushed
-      if (revision === 'latest' && res && res.pushed && res.pushed.name === name) {
-        refresh()
-        return true
-      }
-      return false
-    },
-    [revision, name, refresh],
-  )
+  const updateDialog = usePackageUpdateDialog({
+    bucket,
+    name,
+    revision,
+    onExited: onRevisionPush,
+  })
 
-  const updateDialog = usePackageUpdateDialog({ bucket, name, revision, onExited })
+  usePrevious({ bucket, name, revision }, (prev) => {
+    // close the dialog when navigating away
+    if (!R.equals({ bucket, name, revision }, prev)) updateDialog.close()
+  })
 
   return data.case({
     Ok: ({ objects, prefixes, meta }) => {
@@ -531,16 +529,29 @@ export default function PackageTree({
     ).concat(path.endsWith('/') ? Crumb.Sep(<>&nbsp;/</>) : [])
   }, [bucket, name, revision, path, urls])
 
-  const [key, setKey] = React.useState(1)
+  const [revisionKey, setRevisionKey] = React.useState(1)
+  const [revisionListKey, setRevisionListKey] = React.useState(1)
 
-  const refresh = React.useCallback(() => setKey(R.inc), [setKey])
+  const onRevisionPush = React.useCallback(
+    (res) => {
+      if (res && res.pushed && res.pushed.name === name) {
+        // refresh revision list if a new revision of the current package has been pushed
+        setRevisionListKey(R.inc)
+        if (revision === 'latest') {
+          // when browsing 'latest' revision, also refresh the pacakge view
+          setRevisionKey(R.inc)
+        }
+      }
+    },
+    [name, revision, setRevisionKey, setRevisionListKey],
+  )
 
   return (
     <FileView.Root>
       {!!bucketCfg && (
         <ExposeLinkedData
           {...{ bucketCfg, bucket, name, revision }}
-          key={`links:${key}`}
+          key={`links:${revisionKey}`}
         />
       )}
       <M.Typography variant="body1">
@@ -548,13 +559,16 @@ export default function PackageTree({
           {name}
         </Link>
         {' @ '}
-        <RevisionInfo {...{ revision, bucket, name, path }} key={`revinfo:${key}`} />
+        <RevisionInfo
+          {...{ revision, bucket, name, path }}
+          key={`revinfo:${revisionListKey}`}
+        />
       </M.Typography>
 
       {isDir ? (
         <DirDisplay
-          {...{ bucket, name, revision, path, crumbs, refresh }}
-          key={`dir:${key}`}
+          {...{ bucket, name, revision, path, crumbs, onRevisionPush }}
+          key={`dir:${revisionKey}`}
         />
       ) : (
         <FileDisplay {...{ bucket, name, revision, path, crumbs }} />
