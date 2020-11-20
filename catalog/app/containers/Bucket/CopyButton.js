@@ -14,9 +14,7 @@ const MenuItem = React.forwardRef(({ item, onClick }) => (
   </M.MenuItem>
 ))
 
-export default function CopyButton({ onChange }) {
-  const classes = useStyles()
-
+function BucketsListFetcher({ children }) {
   const items = [
     {
       title: 'one',
@@ -25,6 +23,16 @@ export default function CopyButton({ onChange }) {
       title: 'two',
     },
   ]
+
+  const res = {
+    items,
+  }
+
+  return children(res)
+}
+
+export default function CopyButton({ onChange }) {
+  const classes = useStyles()
 
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null)
 
@@ -44,24 +52,28 @@ export default function CopyButton({ onChange }) {
   const onMenuClose = React.useCallback(() => setMenuAnchorEl(null), [setMenuAnchorEl])
 
   return (
-    <div>
-      <M.Button
-        aria-haspopup="true"
-        className={classes.root}
-        color="primary"
-        size="small"
-        startIcon={<M.Icon>save_alt_outlined</M.Icon>}
-        variant="outlined"
-        onClick={onButtonClick}
-      >
-        Copy to bucket
-      </M.Button>
+    <BucketsListFetcher>
+      {({ items }) => (
+        <>
+          <M.Button
+            aria-haspopup="true"
+            className={classes.root}
+            color="primary"
+            size="small"
+            startIcon={<M.Icon>save_alt_outlined</M.Icon>}
+            variant="outlined"
+            onClick={onButtonClick}
+          >
+            Copy to bucket
+          </M.Button>
 
-      <M.Menu anchorEl={menuAnchorEl} onClose={onMenuClose} open={!!menuAnchorEl}>
-        {items.map((item) => (
-          <MenuItem item={item} onClick={onMenuClick} />
-        ))}
-      </M.Menu>
-    </div>
+          <M.Menu anchorEl={menuAnchorEl} onClose={onMenuClose} open={!!menuAnchorEl}>
+            {items.map((item) => (
+              <MenuItem item={item} onClick={onMenuClick} />
+            ))}
+          </M.Menu>
+        </>
+      )}
+    </BucketsListFetcher>
   )
 }
