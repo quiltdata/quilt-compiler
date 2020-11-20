@@ -1,37 +1,66 @@
+import * as R from 'ramda'
 import * as React from 'react'
 import * as M from '@material-ui/core'
 
-const useStyles = M.makeStyles(() => ({
+import Skeleton from 'components/Skeleton'
+import * as AWS from 'utils/AWS'
+import AsyncResult from 'utils/AsyncResult'
+import { useData } from 'utils/Data'
+
+import * as requests from './requests'
+
+const useStyles = M.makeStyles((t) => ({
   root: {
     flexShrink: 0,
     margin: `-3px 0`,
   },
+
+  placeholder: {
+    minWidth: t.spacing(30),
+  },
 }))
 
-const MenuItem = React.forwardRef(({ item, onClick }) => (
-  <M.MenuItem onClick={React.useCallback(() => onClick(item), [item, onClick])}>
-    {item.title}
-  </M.MenuItem>
-))
+function MenuPlaceholder() {
+  const t = M.useTheme()
 
-function BucketsListFetcher({ children }) {
-  const items = [
-    {
-      title: 'one',
-    },
-    {
-      title: 'two',
-    },
-  ]
-
-  const res = {
-    items,
-  }
-
-  return children(res)
+  return (
+    <M.Box minWidth={t.spacing(30)}>
+      <M.MenuItem disabled>
+        <Skeleton height={t.spacing(4)} width="100%" />
+      </M.MenuItem>
+      <M.MenuItem disabled>
+        <Skeleton height={t.spacing(4)} width="100%" />
+      </M.MenuItem>
+      <M.MenuItem disabled>
+        <Skeleton height={t.spacing(4)} width="100%" />
+      </M.MenuItem>
+    </M.Box>
+  )
 }
 
-export default function CopyButton({ onChange }) {
+function MenuItem({ item, onClick }) {
+  return (
+    <M.MenuItem onClick={React.useCallback(() => onClick(item), [item, onClick])}>
+      {item.name}
+    </M.MenuItem>
+  )
+}
+
+const BucketsListFetcher = React.forwardRef(({ bucket, children }, ref) => {
+  const s3 = AWS.S3.use()
+  const data = useData(requests.workflowsList, { s3, bucket })
+  const res = data.case({
+    Ok: AsyncResult.Ok,
+    Err: AsyncResult.Err,
+    _: R.identity,
+  })
+  return children({
+    ref,
+    ...res,
+  })
+})
+
+export default function CopyButton({ bucket, onChange }) {
   const classes = useStyles()
 
   const [menuAnchorEl, setMenuAnchorEl] = React.useState(null)
@@ -52,28 +81,39 @@ export default function CopyButton({ onChange }) {
   const onMenuClose = React.useCallback(() => setMenuAnchorEl(null), [setMenuAnchorEl])
 
   return (
-    <BucketsListFetcher>
-      {({ items }) => (
-        <>
-          <M.Button
-            aria-haspopup="true"
-            className={classes.root}
-            color="primary"
-            size="small"
-            startIcon={<M.Icon>save_alt_outlined</M.Icon>}
-            variant="outlined"
-            onClick={onButtonClick}
-          >
-            Copy to bucket
-          </M.Button>
+    <>
+      <M.Button
+        aria-haspopup="true"
+        className={classes.root}
+        color="primary"
+        size="small"
+        startIcon={<M.Icon>save_alt_outlined</M.Icon>}
+        variant="outlined"
+        onClick={onButtonClick}
+      >
+        Copy to bucket
+      </M.Button>
 
-          <M.Menu anchorEl={menuAnchorEl} onClose={onMenuClose} open={!!menuAnchorEl}>
-            {items.map((item) => (
-              <MenuItem item={item} onClick={onMenuClick} />
-            ))}
-          </M.Menu>
-        </>
-      )}
-    </BucketsListFetcher>
+      <M.Menu
+        anchorEl={menuAnchorEl}
+        className={classes.menu}
+        onClose={onMenuClose}
+        open={!!menuAnchorEl}
+      >
+        <BucketsListFetcher bucket={bucket}>
+          {AsyncResult.case({
+            Ok: ({ workflows }) => (
+              <>
+                {workflows.map((workflow) => (
+                  <MenuItem key={workflow.slug} item={workflow} onClick={onMenuClick} />
+                ))}
+              </>
+            ),
+            _: () => <MenuPlaceholder />,
+            Err: () => null,
+          })}
+        </BucketsListFetcher>
+      </M.Menu>
+    </>
   )
 }
