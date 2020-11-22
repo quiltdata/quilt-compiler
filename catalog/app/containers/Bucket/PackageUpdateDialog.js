@@ -869,6 +869,19 @@ function DialogSuccess({ bucket, name, revision, close }) {
   )
 }
 
+function DialogWrapper({ exited, ...props }) {
+  const ref = React.useRef()
+  ref.current = { exited, onExited: props.onExited }
+  React.useEffect(
+    () => () => {
+      // call onExited on unmount if it has not been called yet
+      if (!ref.current.exited && ref.current.onExited) ref.current.onExited()
+    },
+    [],
+  )
+  return <M.Dialog {...props} />
+}
+
 const DialogState = tagged([
   'Closed',
   'Loading',
@@ -941,8 +954,9 @@ export function usePackageUpdateDialog({ bucket, name, revision, onExited }) {
 
   const render = React.useCallback(
     () => (
-      <M.Dialog
+      <DialogWrapper
         open={isOpen}
+        exited={exited}
         onClose={close}
         fullWidth
         scroll="body"
@@ -966,9 +980,9 @@ export function usePackageUpdateDialog({ bucket, name, revision, onExited }) {
           ),
           Success: (props) => <DialogSuccess {...{ bucket, close, ...props }} />,
         })}
-      </M.Dialog>
+      </DialogWrapper>
     ),
-    [bucket, name, isOpen, close, stateCase, handleExited],
+    [bucket, name, isOpen, exited, close, stateCase, handleExited],
   )
 
   return React.useMemo(() => ({ open, close, render }), [open, close, render])
