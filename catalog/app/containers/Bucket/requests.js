@@ -30,14 +30,14 @@ function parseWorkflow(workflowSlug, workflow, data) {
   }
 }
 
-export const workflowNotAvaliable = Symbol('not available')
+export const workflowNotAvailable = Symbol('not available')
 
 export const workflowNotSelected = Symbol('not selected')
 
 function getNoWorkflow(data, hasConfig) {
   return {
     isDefault: !data.default_workflow,
-    slug: hasConfig ? workflowNotSelected : workflowNotAvaliable,
+    slug: hasConfig ? workflowNotSelected : workflowNotAvailable,
   }
 }
 
@@ -1020,6 +1020,8 @@ export const loadRevisionHash = ({ s3, bucket, name, id }) =>
 // TODO: Preview endpoint only allows up to 512 lines right now. Increase it to 1000.
 const MAX_PACKAGE_ENTRIES = 500
 
+export const MANIFEST_MAX_SIZE = 10 * 1000 * 1000
+
 export const getRevisionData = async ({
   s3,
   endpoint,
@@ -1048,6 +1050,58 @@ export const getRevisionData = async ({
     stats: { files, bytes, truncated },
     message: header.message,
     header,
+  }
+}
+
+export async function loadManifest({
+  s3,
+  bucket,
+  name,
+  revision = 'latest',
+  maxSize = MANIFEST_MAX_SIZE,
+}) {
+  try {
+    const { hash } = await loadRevisionHash({ s3, bucket, name, id: revision })
+    const manifestKey = `${MANIFESTS_PREFIX}${hash}`
+
+    if (maxSize) {
+      const h = await s3.headObject({ Bucket: bucket, Key: manifestKey }).promise()
+      if (h.ContentLength > maxSize) {
+        throw new errors.ManifestTooLarge({
+          bucket,
+          key: manifestKey,
+          maxSize,
+          actualSize: h.ContentLength,
+        })
+      }
+    }
+
+    const m = await s3.getObject({ Bucket: bucket, Key: manifestKey }).promise()
+    const [header, ...rawEntries] = pipeThru(m.Body.toString('utf-8'))(
+      R.split('\n'),
+      R.map(tryParse),
+      R.filter(Boolean),
+    )
+    const entries = pipeThru(rawEntries)(
+      R.map((e) => [
+        e.logical_key,
+        {
+          hash: e.hash.value,
+          physicalKey: e.physical_keys[0],
+          size: e.size,
+          meta: e.meta,
+        },
+      ]),
+      R.fromPairs,
+    )
+    return { entries, meta: header.user_meta, workflow: header.workflow }
+  } catch (e) {
+    if (e instanceof errors.ManifestTooLarge) throw e
+    // eslint-disable-next-line no-console
+    console.log('loadManifest error:')
+    // eslint-disable-next-line no-console
+    console.error(e)
+    throw e
   }
 }
 

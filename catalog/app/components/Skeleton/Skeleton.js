@@ -6,6 +6,9 @@ import { fade } from '@material-ui/core/styles'
 const shimmerSize = '200px'
 
 const useStyles = M.makeStyles((t) => ({
+  root: {
+    background: t.palette.action.hover,
+  },
   '@keyframes wave': {
     '0%': {
       backgroundPosition: `-${shimmerSize} 0`,
@@ -34,8 +37,7 @@ export default React.forwardRef(function Skeleton(
   const classes = useStyles()
   return (
     <M.Box
-      className={cx(className, animate && classes.animate)}
-      bgcolor="action.hover"
+      className={cx(className, classes.root, animate && classes.animate)}
       {...props}
       ref={ref}
     />
