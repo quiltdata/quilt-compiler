@@ -27,8 +27,6 @@ import * as PD from './PackageDialog'
 import * as ERRORS from './errors'
 import * as requests from './requests'
 
-const getNormalizedPath = (f) => (f.path.startsWith('/') ? f.path.substring(1) : f.path)
-
 const TYPE_ORDER = ['added', 'modified', 'deleted', 'unchanged']
 
 const useFilesInputStyles = M.makeStyles((t) => ({
@@ -223,7 +221,7 @@ function FilesInput({ input, meta, uploads, setUploads, errors = {} }) {
       pipeValue(
         R.reduce(
           (acc, file) => {
-            const path = getNormalizedPath(file)
+            const path = PD.getNormalizedPath(file)
             return R.evolve(
               {
                 added: R.assoc(path, file),
@@ -270,7 +268,7 @@ function FilesInput({ input, meta, uploads, setUploads, errors = {} }) {
   const totalProgress = React.useMemo(() => getTotalProgress(uploads), [uploads])
 
   const computedEntries = useMemoEq(value, ({ added, deleted, existing }) => {
-    const p1 = Object.entries(existing).map(([path, { size }]) => {
+    const existingEntries = Object.entries(existing).map(([path, { size }]) => {
       if (path in deleted) {
         return { type: 'deleted', path, size }
       }
@@ -280,11 +278,12 @@ function FilesInput({ input, meta, uploads, setUploads, errors = {} }) {
       }
       return { type: 'unchanged', path, size }
     })
-    const p2 = Object.entries(added).reduce((acc, [path, { size }]) => {
+    const addedEntries = Object.entries(added).reduce((acc, [path, { size }]) => {
       if (path in existing) return acc
       return acc.concat({ type: 'added', path, size })
     }, [])
-    return R.sortBy((x) => [TYPE_ORDER.indexOf(x.type), x.path], p1.concat(p2))
+    const entries = [...existingEntries, ...addedEntries]
+    return R.sortBy((x) => [TYPE_ORDER.indexOf(x.type), x.path], entries)
   })
 
   const stats = useMemoEq(value, ({ added, deleted, existing }) => ({
@@ -796,7 +795,7 @@ const errorDisplay = R.cond([
     () => (
       <>
         <M.Typography variant="h6" gutterBottom>
-          Unexpeceted error
+          Unexpected error
         </M.Typography>
         <M.Typography gutterBottom>
           Something went wrong. Please contact Quilt support.

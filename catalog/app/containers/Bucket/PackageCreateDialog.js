@@ -29,8 +29,6 @@ const ERRORS = {
   PACKAGE_VALIDATION: { [FORM_ERROR]: 'Error validating package' },
 }
 
-const getNormalizedPath = (f) => (f.path.startsWith('/') ? f.path.substring(1) : f.path)
-
 const useFilesInputStyles = M.makeStyles((t) => ({
   root: {
     marginTop: t.spacing(3),
@@ -199,7 +197,7 @@ function FilesInput({
       ? () => {}
       : R.pipe(
           R.reduce((entries, file) => {
-            const path = getNormalizedPath(file)
+            const path = PD.getNormalizedPath(file)
             const idx = entries.findIndex(R.propEq('path', path))
             const put = idx === -1 ? R.append : R.update(idx)
             return put({ path, file }, entries)

@@ -19,6 +19,11 @@ import SelectWorkflow from './SelectWorkflow'
 export const MAX_SIZE = 1000 * 1000 * 1000 // 1GB
 export const ES_LAG = 3 * 1000
 
+export const getNormalizedPath = R.pipe(
+  R.prop('path'),
+  R.when(R.startsWith('/'), R.drop(1)),
+)
+
 export async function hashFile(file) {
   if (!window.crypto || !window.crypto.subtle || !window.crypto.subtle.digest) return
   try {

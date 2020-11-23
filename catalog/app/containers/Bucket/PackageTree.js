@@ -534,7 +534,8 @@ export default function PackageTree({
 
   const onRevisionPush = React.useCallback(
     (res) => {
-      if (res && res.pushed && res.pushed.name === name) {
+      const pushedSamePackage = R.pathEq(['pushed', 'name'], name, res)
+      if (pushedSamePackage) {
         // refresh revision list if a new revision of the current package has been pushed
         setRevisionListKey(R.inc)
         if (revision === 'latest') {
