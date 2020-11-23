@@ -25,6 +25,7 @@ import CopyButton from './CopyButton'
 import * as FileView from './FileView'
 import { ListingItem, ListingWithLocalFiltering } from './Listing'
 import { usePackageUpdateDialog } from './PackageUpdateDialog'
+import { usePackageCopyDialog } from './PackageCopyDialog'
 import Section from './Section'
 import Summary from './Summary'
 import renderPreview from './renderPreview'
@@ -280,8 +281,7 @@ function DirDisplay({ bucket, name, revision, path, crumbs, onRevisionPush }) {
     onExited: onRevisionPush,
   })
 
-  // TODO: rename to usePackageCopyDialog
-  const copyDialog = usePackageUpdateDialog({
+  const copyDialog = usePackageCopyDialog({
     bucket,
     name,
     revision,
@@ -327,7 +327,7 @@ function DirDisplay({ bucket, name, revision, path, crumbs, onRevisionPush }) {
           {updateDialog.render()}
           {copyDialog.render()}
           <TopBar crumbs={crumbs}>
-            <CopyButton bucket={bucket} onChange={updateDialog.open} />
+            <CopyButton bucket={bucket} onChange={copyDialog.open} />
             <M.Box ml={1} />
             <M.Button
               variant="contained"
