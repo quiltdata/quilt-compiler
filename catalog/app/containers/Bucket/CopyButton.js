@@ -1,8 +1,8 @@
 import * as R from 'ramda'
 import * as React from 'react'
 import * as M from '@material-ui/core'
+import * as Lab from '@material-ui/lab'
 
-import Skeleton from 'components/Skeleton'
 import * as AWS from 'utils/AWS'
 import AsyncResult from 'utils/AsyncResult'
 import { useData } from 'utils/Data'
@@ -14,7 +14,6 @@ const useStyles = M.makeStyles((t) => ({
     flexShrink: 0,
     margin: `-3px 0`,
   },
-
   placeholder: {
     minWidth: t.spacing(30),
   },
@@ -26,13 +25,13 @@ function MenuPlaceholder() {
   return (
     <M.Box minWidth={t.spacing(30)}>
       <M.MenuItem disabled>
-        <Skeleton height={t.spacing(4)} width="100%" />
+        <Lab.Skeleton height={t.spacing(4)} width="100%" />
       </M.MenuItem>
       <M.MenuItem disabled>
-        <Skeleton height={t.spacing(4)} width="100%" />
+        <Lab.Skeleton height={t.spacing(4)} width="100%" />
       </M.MenuItem>
       <M.MenuItem disabled>
-        <Skeleton height={t.spacing(4)} width="100%" />
+        <Lab.Skeleton height={t.spacing(4)} width="100%" />
       </M.MenuItem>
     </M.Box>
   )

@@ -25,7 +25,7 @@ import CopyButton from './CopyButton'
 import * as FileView from './FileView'
 import { ListingItem, ListingWithLocalFiltering } from './Listing'
 import { usePackageUpdateDialog } from './PackageUpdateDialog'
-import { usePackageCopyDialog } from './PackageCopyDialog'
+import PackageCopyDialog from './PackageCopyDialog'
 import Section from './Section'
 import Summary from './Summary'
 import renderPreview from './renderPreview'
@@ -281,12 +281,7 @@ function DirDisplay({ bucket, name, revision, path, crumbs, onRevisionPush }) {
     onExited: onRevisionPush,
   })
 
-  const copyDialog = usePackageCopyDialog({
-    bucket,
-    name,
-    revision,
-    onExited: onRevisionPush,
-  })
+  const [bucketCopyTarget, setBucketCopyTarget] = React.useState(null)
 
   usePrevious({ bucket, name, revision }, (prev) => {
     // close the dialog when navigating away
@@ -324,10 +319,20 @@ function DirDisplay({ bucket, name, revision, path, crumbs, onRevisionPush }) {
       }))
       return (
         <>
+          {bucketCopyTarget && (
+            <PackageCopyDialog
+              name={name}
+              targetBucket={bucketCopyTarget}
+              sourceBucket={bucket}
+              revision={revision}
+              onClose={() => setBucketCopyTarget(null)}
+            />
+          )}
+
           {updateDialog.render()}
-          {copyDialog.render()}
+
           <TopBar crumbs={crumbs}>
-            <CopyButton bucket={bucket} onChange={copyDialog.open} />
+            <CopyButton bucket={bucket} onChange={(b) => setBucketCopyTarget(b.slug)} />
             <M.Box ml={1} />
             <M.Button
               variant="contained"
