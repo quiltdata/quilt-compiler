@@ -3,6 +3,9 @@ import * as React from 'react'
 import { useDropzone } from 'react-dropzone'
 import * as M from '@material-ui/core'
 
+import DropMessage from './DropMessage'
+import FileEntry from './FileEntry'
+
 const useStyles = M.makeStyles((t) => ({
   root: {
     marginTop: t.spacing(2),
@@ -28,13 +31,25 @@ const useStyles = M.makeStyles((t) => ({
   warning: {
     borderColor: t.palette.warning.dark,
   },
+  files: {
+    borderBottom: `1px solid ${t.palette.action.disabled}`,
+    maxHeight: 200,
+    overflowX: 'hidden',
+    overflowY: 'auto',
+  },
+  filesError: {
+    borderColor: t.palette.error.main,
+  },
+  filesWarning: {
+    borderColor: t.palette.warning.dark,
+  },
 }))
 
 export default function Area({
-  children,
   className,
   disabled,
   error,
+  files,
   overlay,
   warning,
   onDrop,
@@ -56,7 +71,25 @@ export default function Area({
       >
         <input {...getInputProps()} />
 
-        {children}
+        {!!files.length && (
+          <div
+            className={cx(classes.files, {
+              [classes.filesError]: !!error,
+              [classes.filesWarning]: !!warning,
+            })}
+          >
+            {files.map((file) => (
+              <FileEntry
+                iconName={file.iconName}
+                key={file.key}
+                path={file.path}
+                size={file.size}
+              />
+            ))}
+          </div>
+        )}
+
+        <DropMessage disabled={disabled} error={error} warning={warning} />
       </div>
 
       {overlay}
