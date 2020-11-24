@@ -12,6 +12,7 @@ import * as AWS from 'utils/AWS'
 import * as Data from 'utils/Data'
 import Delay from 'utils/Delay'
 import FileEntry from 'components/Dropzone/FileEntry'
+import DropMessage from 'components/Dropzone/DropMessage'
 import { getBasename } from 'utils/s3paths'
 import { readableBytes } from 'utils/string'
 import tagged from 'utils/tagged'
@@ -106,22 +107,6 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   active: {
     background: t.palette.action.selected,
   },
-  dropMsg: {
-    ...t.typography.body2,
-    alignItems: 'center',
-    display: 'flex',
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingBottom: t.spacing(1),
-    paddingTop: t.spacing(1),
-    textAlign: 'center',
-  },
-  dropMsgErr: {
-    color: t.palette.error.main,
-  },
-  dropMsgWarn: {
-    color: t.palette.warning.dark,
-  },
   filesContainer: {
     borderBottom: `1px solid ${t.palette.action.disabled}`,
     maxHeight: 200,
@@ -188,15 +173,6 @@ export function FilesInput({
   ])
 
   const warn = totalSize > PD.MAX_SIZE
-
-  // eslint-disable-next-line no-nested-ternary
-  const label = error ? (
-    errors[error] || error
-  ) : warn ? (
-    <>Total file size exceeds recommended maximum of {readableBytes(PD.MAX_SIZE)}</>
-  ) : (
-    'Drop files here or click to browse'
-  )
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const onDrop = React.useCallback(
@@ -276,15 +252,7 @@ export function FilesInput({
             </div>
           )}
 
-          <div
-            className={cx(
-              classes.dropMsg,
-              !!error && classes.dropMsgErr,
-              !error && warn && classes.dropMsgWarn,
-            )}
-          >
-            {label}
-          </div>
+          <DropMessage error={errors[error] || error} warning={warn} />
         </div>
         {disabled && (
           <div className={classes.lock}>
