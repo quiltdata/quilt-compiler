@@ -39,29 +39,8 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   root: {
     marginTop: t.spacing(3),
   },
-  dropzoneContainer: {
-    marginTop: t.spacing(2),
-    position: 'relative',
-  },
   dropzone: {
-    background: t.palette.action.hover,
-    border: `1px solid ${t.palette.action.disabled}`,
-    borderRadius: t.shape.borderRadius,
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: 140,
-    outline: 'none',
-    overflow: 'hidden',
-  },
-  dropzoneErr: {
-    borderColor: t.palette.error.main,
-  },
-  dropzoneWarn: {
-    borderColor: t.palette.warning.dark,
-  },
-  active: {
-    background: t.palette.action.selected,
+    marginTop: t.spacing(2),
   },
   filesContainer: {
     borderBottom: `1px solid ${t.palette.action.disabled}`,
@@ -100,14 +79,13 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
         )}
       </Dropzone.Header>
 
-      <div className={classes.dropzoneContainer}>
-        <div
-          className={cx(
-            classes.dropzone,
-            !!error && classes.dropzoneErr,
-            !error && warn && classes.dropzoneWarn,
-          )}
-        >
+      <Dropzone.Area
+        className={classes.dropzone}
+        disabled
+        overlay={<Dropzone.Overlay />}
+        onDrop={R.always([])}
+      >
+        <>
           {!!value.length && (
             <div
               className={cx(
@@ -128,10 +106,8 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
           )}
 
           <Dropzone.DropMessage disabled />
-        </div>
-
-        <Dropzone.Overlay />
-      </div>
+        </>
+      </Dropzone.Area>
     </div>
   )
 }
