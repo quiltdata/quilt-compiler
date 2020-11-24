@@ -11,8 +11,6 @@ import * as AWS from 'utils/AWS'
 import * as Data from 'utils/Data'
 import Delay from 'utils/Delay'
 import * as Dropzone from 'components/Dropzone'
-import FileEntry from 'components/Dropzone/FileEntry'
-import DropMessage from 'components/Dropzone/DropMessage'
 import { getBasename } from 'utils/s3paths'
 import { readableBytes } from 'utils/string'
 import tagged from 'utils/tagged'
@@ -119,7 +117,7 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
               )}
             >
               {value.map(({ file }) => (
-                <FileEntry
+                <Dropzone.FileEntry
                   iconName="attach_file"
                   key={file.physicalKey}
                   path={getBasename(decodeURIComponent(file.physicalKey))}
@@ -129,7 +127,7 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
             </div>
           )}
 
-          <DropMessage disabled />
+          <Dropzone.DropMessage disabled />
         </div>
 
         <Dropzone.Overlay />
