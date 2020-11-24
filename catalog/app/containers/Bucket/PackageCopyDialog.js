@@ -11,6 +11,7 @@ import AsyncResult from 'utils/AsyncResult'
 import * as AWS from 'utils/AWS'
 import * as Data from 'utils/Data'
 import Delay from 'utils/Delay'
+import FileEntry from 'components/Dropzone/FileEntry'
 import { getBasename } from 'utils/s3paths'
 import { readableBytes } from 'utils/string'
 import tagged from 'utils/tagged'
@@ -132,29 +133,6 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   },
   filesContainerWarn: {
     borderColor: t.palette.warning.dark,
-  },
-  fileEntry: {
-    alignItems: 'center',
-    background: t.palette.background.paper,
-    display: 'flex',
-    '&:not(:last-child)': {
-      borderBottomStyle: 'solid',
-      borderBottomWidth: '1px',
-      borderColor: 'inherit',
-    },
-  },
-  filePath: {
-    ...t.typography.body2,
-    flexGrow: 1,
-    marginRight: t.spacing(1),
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  fileSize: {
-    ...t.typography.body2,
-    color: t.palette.text.secondary,
-    marginRight: t.spacing(0.5),
   },
   lock: {
     alignItems: 'center',
@@ -288,13 +266,12 @@ export function FilesInput({
               )}
             >
               {value.map(({ file }) => (
-                <div key={file.physicalKey} className={classes.fileEntry}>
-                  <M.Icon fontSize="small">attach_file</M.Icon>
-                  <div className={classes.filePath} title={file.physicalKey}>
-                    {getBasename(decodeURIComponent(file.physicalKey))}
-                  </div>
-                  <div className={classes.fileSize}>{readableBytes(file.size)}</div>
-                </div>
+                <FileEntry
+                  iconName="attach_file"
+                  key={file.physicalKey}
+                  path={getBasename(decodeURIComponent(file.physicalKey))}
+                  size="file.size"
+                />
               ))}
             </div>
           )}
