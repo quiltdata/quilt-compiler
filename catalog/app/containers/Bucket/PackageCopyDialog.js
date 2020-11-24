@@ -22,19 +22,6 @@ import * as ERRORS from './errors'
 import * as PD from './PackageDialog'
 import * as requests from './requests'
 
-function DialogWrapper({ exited, ...props }) {
-  const ref = React.useRef()
-  ref.current = { exited, onExited: props.onExited }
-  React.useEffect(
-    () => () => {
-      // call onExited on unmount if it has not been called yet
-      if (!ref.current.exited && ref.current.onExited) ref.current.onExited()
-    },
-    [],
-  )
-  return <M.Dialog {...props} />
-}
-
 const getTotalProgress = R.pipe(
   R.values,
   R.reduce(
@@ -155,7 +142,6 @@ function DialogForm({
   bucket,
   name: initialName,
   close,
-  setSubmitting,
   onSuccess,
   manifest,
   workflowsConfig,
@@ -181,19 +167,10 @@ function DialogForm({
     return { [FORM_ERROR]: 'Error creating manifest' }
   }
 
-  const onSubmitWrapped = async (...args) => {
-    setSubmitting(true)
-    try {
-      return await onSubmit(...args)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const totalProgress = React.useMemo(() => getTotalProgress(uploads), [uploads])
 
   return (
-    <RF.Form onSubmit={onSubmitWrapped}>
+    <RF.Form onSubmit={onSubmit}>
       {({
         handleSubmit,
         submitting,
@@ -205,7 +182,7 @@ function DialogForm({
         values,
       }) => (
         <>
-          <M.DialogTitle>Push package revision</M.DialogTitle>
+          <M.DialogTitle>Copy package to &quot;{bucket}&quot; bucket</M.DialogTitle>
           <M.DialogContent style={{ paddingTop: 0 }}>
             <form onSubmit={handleSubmit}>
               <RF.Field
@@ -409,10 +386,10 @@ function DialogError({ error, close }) {
   )
 }
 
-function DialogPlaceholder({ close }) {
+function DialogPlaceholder({ bucket, close }) {
   return (
     <>
-      <M.DialogTitle>Push package revision</M.DialogTitle>
+      <M.DialogTitle>Copy package to &quot;{bucket}&quot; bucket</M.DialogTitle>
       <M.DialogContent style={{ paddingTop: 0 }}>
         <PD.FormSkeleton />
       </M.DialogContent>
@@ -438,54 +415,28 @@ const DialogState = tagged([
   'Success', // { name, revision }
 ])
 
-export function usePackageCopyDialog({ bucket, name, revision, onExited }) {
+export default function PackageCopyDialog({
+  sourceBucket,
+  targetBucket,
+  name,
+  revision,
+  onClose,
+}) {
   const s3 = AWS.S3.use()
 
-  const [isOpen, setOpen] = React.useState(false)
-  const [wasOpened, setWasOpened] = React.useState(false)
-  const [exited, setExited] = React.useState(!isOpen)
-  const [exitValue, setExitValue] = React.useState(null)
   const [success, setSuccess] = React.useState(false)
-  const [submitting, setSubmitting] = React.useState(false)
-  const [key, setKey] = React.useState(1)
 
-  const open = React.useCallback(() => {
-    setOpen(true)
-    setWasOpened(true)
-    setExited(false)
-  }, [setOpen, setWasOpened, setExited])
+  const manifestData = Data.use(requests.loadManifest, {
+    s3,
+    bucket: sourceBucket,
+    name,
+    revision,
+  })
 
-  const close = React.useCallback(() => {
-    if (submitting) return
-    setOpen(false)
-    setExitValue({ pushed: success })
-  }, [submitting, setOpen, success, setExitValue])
-
-  const refreshManifest = React.useCallback(() => {
-    setWasOpened(false)
-    setKey(R.inc)
-  }, [setWasOpened, setKey])
-
-  const handleExited = React.useCallback(() => {
-    setExited(true)
-    setSuccess(false)
-    setExitValue(null)
-    if (onExited) {
-      const shouldRefreshManifest = onExited(exitValue)
-      if (shouldRefreshManifest) refreshManifest()
-    }
-  }, [setExited, setSuccess, setExitValue, onExited, exitValue, refreshManifest])
-
-  const manifestData = Data.use(
-    requests.loadManifest,
-    { s3, bucket, name, revision, key },
-    { noAutoFetch: !wasOpened },
-  )
-
-  const workflowsData = Data.use(requests.workflowsList, { s3, bucket })
+  const workflowsData = Data.use(requests.workflowsList, { s3, bucket: targetBucket })
 
   const state = React.useMemo(() => {
-    if (exited) return DialogState.Closed()
+    // if (exited) return DialogState.Closed()
     if (success) return DialogState.Success(success)
     return workflowsData.case({
       Ok: (workflowsConfig) =>
@@ -497,44 +448,29 @@ export function usePackageCopyDialog({ bucket, name, revision, onExited }) {
       Err: DialogState.Error,
       _: DialogState.Loading,
     })
-  }, [exited, success, workflowsData, manifestData])
+  }, [success, workflowsData, manifestData])
 
   const stateCase = React.useCallback((cases) => DialogState.case(cases, state), [state])
 
-  const render = React.useCallback(
-    () => (
-      <DialogWrapper
-        open={isOpen}
-        exited={exited}
-        onClose={close}
-        fullWidth
-        scroll="body"
-        onExited={handleExited}
-      >
-        {stateCase({
-          Closed: () => null,
-          Loading: () => <DialogPlaceholder close={close} />,
-          Error: (e) => <DialogError close={close} error={e} />,
-          Form: (props) => (
-            <DialogForm
-              {...{
-                bucket,
-                close,
-                name,
-                onSuccess: setSuccess,
-                setSubmitting,
-                ...props,
-              }}
-            />
-          ),
-          Success: (props) => <DialogSuccess {...{ bucket, close, ...props }} />,
-        })}
-      </DialogWrapper>
-    ),
-    [bucket, name, isOpen, exited, close, stateCase, handleExited],
+  return (
+    <M.Dialog open onClose={onClose} fullWidth scroll="body">
+      {stateCase({
+        Closed: () => null,
+        Loading: () => <DialogPlaceholder bucket={targetBucket} close={onClose} />,
+        Error: (e) => <DialogError close={onClose} error={e} />,
+        Form: (props) => (
+          <DialogForm
+            {...{
+              bucket: targetBucket,
+              close: onClose,
+              name,
+              onSuccess: setSuccess,
+              ...props,
+            }}
+          />
+        ),
+        Success: (props) => <DialogSuccess {...{ bucket: targetBucket, ...props }} />,
+      })}
+    </M.Dialog>
   )
-
-  return React.useMemo(() => ({ open, close, render }), [open, close, render])
 }
-
-export const use = usePackageCopyDialog
