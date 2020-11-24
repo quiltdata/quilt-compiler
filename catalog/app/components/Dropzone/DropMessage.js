@@ -12,6 +12,7 @@ const useStyles = M.makeStyles((t) => ({
     display: 'flex',
     flexGrow: 1,
     justifyContent: 'center',
+    minHeight: t.spacing(4),
     paddingBottom: t.spacing(1),
     paddingTop: t.spacing(1),
     textAlign: 'center',
@@ -24,7 +25,7 @@ const useStyles = M.makeStyles((t) => ({
   },
 }))
 
-export default function DropMessage({ error, warning }) {
+export default function DropMessage({ disabled, error, warning }) {
   const classes = useStyles()
 
   const label = React.useMemo(() => {
@@ -33,8 +34,9 @@ export default function DropMessage({ error, warning }) {
       return `Total file size exceeds recommended maximum of ${readableBytes(
         PD.MAX_SIZE,
       )}`
+    if (disabled) return ''
     return 'Drop files here or click to browse'
-  }, [error, warning])
+  }, [disabled, error, warning])
 
   return (
     <div
