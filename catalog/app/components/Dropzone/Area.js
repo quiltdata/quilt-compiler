@@ -5,13 +5,14 @@ import * as M from '@material-ui/core'
 
 import DropMessage from './DropMessage'
 import FileEntry from './FileEntry'
+import Header from './Header'
 
 const useStyles = M.makeStyles((t) => ({
-  root: {
+  dropzone: {
     marginTop: t.spacing(2),
     position: 'relative',
   },
-  container: {
+  dropzoneContainer: {
     background: t.palette.action.hover,
     border: `1px solid ${t.palette.action.disabled}`,
     borderRadius: t.shape.borderRadius,
@@ -50,9 +51,10 @@ export default function Area({
   disabled,
   error,
   files,
-  overlay,
-  warning,
   onDrop,
+  overlayComponent,
+  statsComponent,
+  warning,
 }) {
   const classes = useStyles()
 
@@ -60,39 +62,45 @@ export default function Area({
 
   return (
     <div className={cx(classes.root, className)}>
-      <div
-        {...getRootProps({
-          className: cx(classes.container, {
-            [classes.active]: isDragActive && !disabled,
-            [classes.error]: !!error,
-            [classes.warning]: !!warning,
-          }),
-        })}
-      >
-        <input {...getInputProps()} />
+      <Header disabled error={error} warning={warning}>
+        {statsComponent}
+      </Header>
 
-        {!!files.length && (
-          <div
-            className={cx(classes.files, {
-              [classes.filesError]: !!error,
-              [classes.filesWarning]: !!warning,
-            })}
-          >
-            {files.map((file) => (
-              <FileEntry
-                iconName={file.iconName}
-                key={file.key}
-                path={file.path}
-                size={file.size}
-              />
-            ))}
-          </div>
-        )}
+      <div className={classes.dropzone}>
+        <div
+          {...getRootProps({
+            className: cx(classes.dropzoneContainer, {
+              [classes.active]: isDragActive && !disabled,
+              [classes.error]: !!error,
+              [classes.warning]: !!warning,
+            }),
+          })}
+        >
+          <input {...getInputProps()} />
 
-        <DropMessage disabled={disabled} error={error} warning={warning} />
+          {!!files.length && (
+            <div
+              className={cx(classes.files, {
+                [classes.filesError]: !!error,
+                [classes.filesWarning]: !!warning,
+              })}
+            >
+              {files.map((file) => (
+                <FileEntry
+                  iconName={file.iconName}
+                  key={file.key}
+                  path={file.path}
+                  size={file.size}
+                />
+              ))}
+            </div>
+          )}
+
+          <DropMessage disabled={disabled} error={error} warning={warning} />
+        </div>
+
+        {overlayComponent}
       </div>
-
-      {overlay}
     </div>
   )
 }
