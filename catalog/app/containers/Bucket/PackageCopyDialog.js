@@ -9,7 +9,7 @@ import AsyncResult from 'utils/AsyncResult'
 import * as AWS from 'utils/AWS'
 import * as Data from 'utils/Data'
 import Delay from 'utils/Delay'
-import * as Dropzone from 'components/Dropzone'
+import Dropzone, { Overlay as DropzoneOverlay } from 'components/Dropzone'
 import { getBasename } from 'utils/s3paths'
 import { readableBytes } from 'utils/string'
 import tagged from 'utils/tagged'
@@ -38,9 +38,6 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   root: {
     marginTop: t.spacing(3),
   },
-  dropzone: {
-    marginTop: t.spacing(2),
-  },
 }))
 
 export function FilesInput({ input: { value: inputValue }, meta }) {
@@ -62,27 +59,24 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
     size: file.size,
   }))
 
-  return (
-    <div className={classes.root}>
-      <Dropzone.Header disabled>
-        {!!value.length && (
-          <>
-            : {value.length} ({readableBytes(totalSize)})
-            {warn && <M.Icon style={{ marginLeft: 4 }}>error_outline</M.Icon>}
-          </>
-        )}
-      </Dropzone.Header>
+  const statsComponent = !!files.length && (
+    <>
+      : {files.length} ({readableBytes(totalSize)})
+      {warn && <M.Icon style={{ marginLeft: 4 }}>error_outline</M.Icon>}
+    </>
+  )
 
-      <Dropzone.Area
-        className={classes.dropzone}
-        disabled
-        error={error}
-        files={files}
-        overlay={<Dropzone.Overlay />}
-        warning={warn}
-        onDrop={R.always([])}
-      />
-    </div>
+  return (
+    <Dropzone
+      className={classes.root}
+      disabled
+      error={error}
+      files={files}
+      overlayComponent={<DropzoneOverlay />}
+      statsComponent={statsComponent}
+      warning={warn}
+      onDrop={R.always([])}
+    />
   )
 }
 
