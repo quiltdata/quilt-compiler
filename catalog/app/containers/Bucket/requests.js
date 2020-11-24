@@ -62,6 +62,13 @@ function parseWorkflows(workflowsYaml) {
     data.is_workflow_required === false ? getNoWorkflow(data, true) : null
 
   return {
+    successors: (data.successors || []).map((successor) => {
+      const url = Object.keys(successor)
+      return {
+        name: successor[url].name,
+        slug: s3paths.parseS3Url(Object.keys(successor)[0]).bucket,
+      }
+    }),
     isRequired: data.is_workflow_required,
     workflows: noWorkflow ? [noWorkflow, ...workflowsList] : workflowsList,
   }

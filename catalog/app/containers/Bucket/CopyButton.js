@@ -49,23 +49,7 @@ const BucketsListFetcher = React.forwardRef(({ bucket, children }, ref) => {
   const s3 = AWS.S3.use()
   const data = useData(requests.workflowsList, { s3, bucket })
   const res = data.case({
-    Ok: () =>
-      AsyncResult.Ok({
-        buckets: [
-          {
-            name: 'fiskus-sandbox-dev',
-            slug: 'fiskus-sandbox-dev',
-          },
-          {
-            name: 'quilt-bio-staging',
-            slug: 'quilt-bio-staging',
-          },
-          {
-            name: 'quilt-t4-staging',
-            slug: 'quilt-t4-staging',
-          },
-        ],
-      }),
+    Ok: AsyncResult.Ok,
     Err: AsyncResult.Err,
     _: R.identity,
   })
@@ -117,9 +101,9 @@ export default function CopyButton({ bucket, onChange }) {
       >
         <BucketsListFetcher bucket={bucket}>
           {AsyncResult.case({
-            Ok: ({ buckets }) => (
+            Ok: ({ successors }) => (
               <>
-                {buckets.map((b) => (
+                {successors.map((b) => (
                   <MenuItem key={b.slug} item={b} onClick={onMenuClick} />
                 ))}
               </>
