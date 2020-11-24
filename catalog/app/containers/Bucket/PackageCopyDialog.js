@@ -2,7 +2,6 @@ import cx from 'classnames'
 import * as R from 'ramda'
 import { FORM_ERROR } from 'final-form'
 import * as React from 'react'
-import { useDropzone } from 'react-dropzone'
 import * as RF from 'react-final-form'
 import * as M from '@material-ui/core'
 import { fade } from '@material-ui/core/styles'
@@ -12,6 +11,7 @@ import * as AWS from 'utils/AWS'
 import * as Data from 'utils/Data'
 import Delay from 'utils/Delay'
 import FileEntry from 'components/Dropzone/FileEntry'
+import DropzoneOverlay from 'components/Dropzone/DropzoneOverlay'
 import DropMessage from 'components/Dropzone/DropMessage'
 import { getBasename } from 'utils/s3paths'
 import { readableBytes } from 'utils/string'
@@ -75,17 +75,6 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   dropzoneContainer: {
     marginTop: t.spacing(2),
     position: 'relative',
-
-    '&::after': {
-      bottom: 0,
-      content: '""',
-      left: 0,
-      position: 'absolute',
-      right: 0,
-      top: 0,
-      background: 'rgba(255, 0, 0, 0.3)',
-      zIndex: 1,
-    },
   },
   dropzone: {
     background: t.palette.action.hover,
@@ -119,53 +108,13 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   filesContainerWarn: {
     borderColor: t.palette.warning.dark,
   },
-  lock: {
-    alignItems: 'center',
-    background: 'rgba(255,255,255,0.9)',
-    border: `1px solid ${t.palette.action.disabled}`,
-    borderRadius: t.shape.borderRadius,
-    bottom: 0,
-    cursor: 'not-allowed',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  progressContainer: {
-    display: 'flex',
-    position: 'relative',
-  },
-  progressPercent: {
-    ...t.typography.h5,
-    alignItems: 'center',
-    bottom: 0,
-    display: 'flex',
-    justifyContent: 'center',
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  progressSize: {
-    ...t.typography.body2,
-    color: t.palette.text.secondary,
-    marginTop: t.spacing(1),
-  },
 }))
 
-export function FilesInput({
-  input: { value: inputValue, onChange: onInputChange },
-  meta,
-  uploads,
-  errors = {},
-}) {
+export function FilesInput({ input: { value: inputValue }, meta }) {
   const classes = useFilesInputStyles()
 
   const value = inputValue || []
-  const disabled = meta.submitting || meta.submitSucceeded
+  const disabled = true
   const error = meta.submitFailed && meta.error
 
   const totalSize = React.useMemo(() => value.reduce((sum, f) => sum + f.file.size, 0), [
@@ -174,27 +123,6 @@ export function FilesInput({
 
   const warn = totalSize > PD.MAX_SIZE
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const onDrop = React.useCallback(
-    disabled
-      ? () => {}
-      : R.pipe(
-          R.reduce((entries, file) => {
-            const path = PD.getNormalizedPath(file)
-            const idx = entries.findIndex(R.propEq('path', path))
-            const put = idx === -1 ? R.append : R.update(idx)
-            return put({ path, file }, entries)
-          }, value),
-          R.sortBy(R.prop('path')),
-          onInputChange,
-        ),
-    [disabled, value, onInputChange],
-  )
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop })
-
-  // FIXME: we don't upload files
-  const totalProgress = React.useMemo(() => getTotalProgress(uploads), [uploads])
   return (
     <div className={classes.root}>
       <div className={classes.header}>
@@ -222,17 +150,12 @@ export function FilesInput({
 
       <div className={classes.dropzoneContainer}>
         <div
-          {...getRootProps({
-            className: cx(
-              classes.dropzone,
-              isDragActive && !disabled && classes.active,
-              !!error && classes.dropzoneErr,
-              !error && warn && classes.dropzoneWarn,
-            ),
-          })}
+          className={cx(
+            classes.dropzone,
+            !!error && classes.dropzoneErr,
+            !error && warn && classes.dropzoneWarn,
+          )}
         >
-          <input {...getInputProps()} disabled />
-
           {!!value.length && (
             <div
               className={cx(
@@ -246,29 +169,16 @@ export function FilesInput({
                   iconName="attach_file"
                   key={file.physicalKey}
                   path={getBasename(decodeURIComponent(file.physicalKey))}
-                  size="file.size"
+                  size={file.size}
                 />
               ))}
             </div>
           )}
 
-          <DropMessage error={errors[error] || error} warning={warn} />
+          <DropMessage disabled />
         </div>
-        {disabled && (
-          <div className={classes.lock}>
-            <div className={classes.progressContainer}>
-              <M.CircularProgress
-                size={80}
-                value={totalProgress.percent}
-                variant="determinate"
-              />
-              <div className={classes.progressPercent}>{totalProgress.percent}%</div>
-            </div>
-            <div className={classes.progressSize}>
-              {readableBytes(totalProgress.loaded)} / {readableBytes(totalProgress.total)}
-            </div>
-          </div>
-        )}
+
+        <DropzoneOverlay />
       </div>
     </div>
   )
