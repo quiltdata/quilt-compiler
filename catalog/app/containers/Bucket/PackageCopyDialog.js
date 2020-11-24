@@ -1,4 +1,3 @@
-import cx from 'classnames'
 import * as R from 'ramda'
 import { FORM_ERROR } from 'final-form'
 import * as React from 'react'
@@ -42,18 +41,6 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   dropzone: {
     marginTop: t.spacing(2),
   },
-  filesContainer: {
-    borderBottom: `1px solid ${t.palette.action.disabled}`,
-    maxHeight: 200,
-    overflowX: 'hidden',
-    overflowY: 'auto',
-  },
-  filesContainerErr: {
-    borderColor: t.palette.error.main,
-  },
-  filesContainerWarn: {
-    borderColor: t.palette.warning.dark,
-  },
 }))
 
 export function FilesInput({ input: { value: inputValue }, meta }) {
@@ -67,6 +54,13 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
   ])
 
   const warn = totalSize > PD.MAX_SIZE
+
+  const files = value.map(({ file }) => ({
+    iconName: 'attach_file',
+    key: file.physicalKey,
+    path: getBasename(decodeURIComponent(file.physicalKey)),
+    size: file.size,
+  }))
 
   return (
     <div className={classes.root}>
@@ -82,32 +76,12 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
       <Dropzone.Area
         className={classes.dropzone}
         disabled
+        error={error}
+        files={files}
         overlay={<Dropzone.Overlay />}
+        warning={warn}
         onDrop={R.always([])}
-      >
-        <>
-          {!!value.length && (
-            <div
-              className={cx(
-                classes.filesContainer,
-                !!error && classes.filesContainerErr,
-                !error && warn && classes.filesContainerWarn,
-              )}
-            >
-              {value.map(({ file }) => (
-                <Dropzone.FileEntry
-                  iconName="attach_file"
-                  key={file.physicalKey}
-                  path={getBasename(decodeURIComponent(file.physicalKey))}
-                  size={file.size}
-                />
-              ))}
-            </div>
-          )}
-
-          <Dropzone.DropMessage disabled />
-        </>
-      </Dropzone.Area>
+      />
     </div>
   )
 }
