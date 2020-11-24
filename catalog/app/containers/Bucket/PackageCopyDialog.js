@@ -10,8 +10,8 @@ import AsyncResult from 'utils/AsyncResult'
 import * as AWS from 'utils/AWS'
 import * as Data from 'utils/Data'
 import Delay from 'utils/Delay'
+import * as Dropzone from 'components/Dropzone'
 import FileEntry from 'components/Dropzone/FileEntry'
-import DropzoneOverlay from 'components/Dropzone/DropzoneOverlay'
 import DropMessage from 'components/Dropzone/DropMessage'
 import { getBasename } from 'utils/s3paths'
 import { readableBytes } from 'utils/string'
@@ -53,24 +53,6 @@ const getTotalProgress = R.pipe(
 const useFilesInputStyles = M.makeStyles((t) => ({
   root: {
     marginTop: t.spacing(3),
-  },
-  header: {
-    alignItems: 'center',
-    display: 'flex',
-    height: 24,
-  },
-  headerFiles: {
-    ...t.typography.body1,
-    display: 'flex',
-  },
-  headerFilesDisabled: {
-    color: t.palette.text.secondary,
-  },
-  headerFilesError: {
-    color: t.palette.error.main,
-  },
-  headerFilesWarn: {
-    color: t.palette.warning.dark,
   },
   dropzoneContainer: {
     marginTop: t.spacing(2),
@@ -114,7 +96,6 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
   const classes = useFilesInputStyles()
 
   const value = inputValue || []
-  const disabled = true
   const error = meta.submitFailed && meta.error
 
   const totalSize = React.useMemo(() => value.reduce((sum, f) => sum + f.file.size, 0), [
@@ -125,28 +106,14 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
 
   return (
     <div className={classes.root}>
-      <div className={classes.header}>
-        <div
-          className={cx(
-            classes.headerFiles,
-            disabled // eslint-disable-line no-nested-ternary
-              ? classes.headerFilesDisabled
-              : error // eslint-disable-line no-nested-ternary
-              ? classes.headerFilesError
-              : warn
-              ? classes.headerFilesWarn
-              : undefined,
-          )}
-        >
-          Files
-          {!!value.length && (
-            <>
-              : {value.length} ({readableBytes(totalSize)})
-              {warn && <M.Icon style={{ marginLeft: 4 }}>error_outline</M.Icon>}
-            </>
-          )}
-        </div>
-      </div>
+      <Dropzone.Header disabled>
+        {!!value.length && (
+          <>
+            : {value.length} ({readableBytes(totalSize)})
+            {warn && <M.Icon style={{ marginLeft: 4 }}>error_outline</M.Icon>}
+          </>
+        )}
+      </Dropzone.Header>
 
       <div className={classes.dropzoneContainer}>
         <div
@@ -178,7 +145,7 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
           <DropMessage disabled />
         </div>
 
-        <DropzoneOverlay />
+        <Dropzone.Overlay />
       </div>
     </div>
   )

@@ -20,7 +20,7 @@ const useStyles = M.makeStyles((t) => ({
   },
 }))
 
-export default function DropzoneOverlay({ children, className }) {
+export default function Overlay({ children, className }) {
   const classes = useStyles()
   return <div className={cx(classes.root, className)}>{children}</div>
 }
