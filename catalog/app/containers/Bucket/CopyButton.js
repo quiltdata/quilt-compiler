@@ -12,7 +12,7 @@ import * as requests from './requests'
 const useStyles = M.makeStyles((t) => ({
   root: {
     flexShrink: 0,
-    margin: `-3px 0`,
+    margin: '-3px 0',
   },
   placeholder: {
     minWidth: t.spacing(30),
