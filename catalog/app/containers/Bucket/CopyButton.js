@@ -86,11 +86,11 @@ export default function CopyButton({ bucket, onChange }) {
         className={classes.root}
         color="primary"
         size="small"
-        startIcon={<M.Icon>save_alt_outlined</M.Icon>}
+        startIcon={<M.Icon>arrow_right_alt</M.Icon>}
         variant="outlined"
         onClick={onButtonClick}
       >
-        Copy to bucket
+        Promote to bucket
       </M.Button>
 
       <M.Menu
