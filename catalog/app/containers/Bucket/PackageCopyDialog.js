@@ -357,13 +357,22 @@ function DialogError({ bucket, error, onClose }) {
   )
 }
 
-function DialogLoading({ bucket, onClose }) {
+function DialogLoading({ bucket, onCancel }) {
+  const { urls } = NamedRoutes.use()
+
   return (
-    <>
-      <DialogTitle bucket={bucket} />
-      <ContentPlaceholder />
-      <ActionsPlaceholder onCancel={onClose} />
-    </>
+    <PD.DialogLoading
+      title={
+        <>
+          Promote package to{' '}
+          <StyledLink target="_blank" to={urls.bucketOverview(bucket)}>
+            {bucket}
+          </StyledLink>{' '}
+          bucket
+        </>
+      }
+      onCancel={onCancel}
+    />
   )
 }
 
@@ -444,7 +453,7 @@ export default function PackageCopyDialog({
     <M.Dialog open onClose={onClose} fullWidth scroll="body">
       {stateCase({
         Error: (e) => <DialogError bucket={targetBucket} onClose={onClose} error={e} />,
-        Loading: () => <DialogLoading bucket={targetBucket} onClose={onClose} />,
+        Loading: () => <DialogLoading bucket={targetBucket} onCancel={onClose} />,
         Form: (props) => (
           <DialogForm
             {...{
