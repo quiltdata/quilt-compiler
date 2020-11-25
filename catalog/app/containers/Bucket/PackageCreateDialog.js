@@ -642,7 +642,8 @@ function PackageCreateDialog({ bucket, open, workflowsConfig, onClose, refresh }
 
 export default function PackageCreateDialogWrapper({ bucket, open, onClose, refresh }) {
   const s3 = AWS.S3.use()
-  const data = useData(requests.workflowsList, { s3, bucket })
+
+  const data = useData(requests.workflowsList, { s3, bucket }, { noAutoFetch: !open })
 
   return data.case({
     Ok: (workflowsConfig) => (
@@ -661,7 +662,10 @@ export default function PackageCreateDialogWrapper({ bucket, open, onClose, refr
       console.error(error)
       return null
     },
-    // TODO: show some progress indicator, e.g. skeleton or spinner
-    _: () => null,
+    _: () => (
+      <M.Dialog open={open} onClose={onClose} fullWidth scroll="body">
+        <PD.DialogLoading title="Push package" onCancel={onClose} />
+      </M.Dialog>
+    ),
   })
 }
