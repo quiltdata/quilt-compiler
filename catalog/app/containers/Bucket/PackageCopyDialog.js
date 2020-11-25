@@ -4,7 +4,6 @@ import * as React from 'react'
 import * as RF from 'react-final-form'
 import { Link } from 'react-router-dom'
 import * as M from '@material-ui/core'
-import { fade } from '@material-ui/core/styles'
 
 import AsyncResult from 'utils/AsyncResult'
 import * as AWS from 'utils/AWS'
@@ -18,7 +17,6 @@ import StyledLink from 'utils/StyledLink'
 import tagged from 'utils/tagged'
 import * as validators from 'utils/validators'
 
-import * as ERRORS from './errors'
 import * as PD from './PackageDialog'
 import * as requests from './requests'
 
@@ -280,80 +278,23 @@ function DialogForm({
   )
 }
 
-const useDialogErrorStyles = M.makeStyles((t) => ({
-  overlay: {
-    background: fade(t.palette.common.white, 0.4),
-    bottom: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    left: 0,
-    padding: t.spacing(2, 3, 4),
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-}))
+function DialogError({ bucket, error, onCancel }) {
+  const { urls } = NamedRoutes.use()
 
-const errorDisplay = R.cond([
-  [
-    R.is(ERRORS.ManifestTooLarge),
-    (e) => (
-      <>
-        <M.Typography variant="h6" gutterBottom>
-          Package manifest too large
-        </M.Typography>
-        <M.Typography gutterBottom>
-          This package is not editable via the web UI&mdash;it cannot handle package
-          manifest that large ({readableBytes(e.actualSize)}).
-        </M.Typography>
-        <M.Typography>Please use Quilt CLI to edit this package.</M.Typography>
-      </>
-    ),
-  ],
-  [
-    R.T,
-    () => (
-      <>
-        <M.Typography variant="h6" gutterBottom>
-          Unexpected error
-        </M.Typography>
-        <M.Typography gutterBottom>
-          Something went wrong. Please contact Quilt support.
-        </M.Typography>
-        <M.Typography>You can also use Quilt CLI to edit this package.</M.Typography>
-      </>
-    ),
-  ],
-])
-
-function ActionsPlaceholder({ onCancel }) {
   return (
-    <M.DialogActions>
-      <M.Button onClick={onCancel}>Cancel</M.Button>
-      <M.Button variant="contained" color="primary" disabled>
-        Push
-      </M.Button>
-    </M.DialogActions>
-  )
-}
-
-function ContentPlaceholder({ animate, error }) {
-  const classes = useDialogErrorStyles()
-  return (
-    <M.DialogContent style={{ paddingTop: 0, position: 'relative' }}>
-      <PD.FormSkeleton animate={animate} />
-      {error && <div className={classes.overlay}>{errorDisplay(error)}</div>}
-    </M.DialogContent>
-  )
-}
-
-function DialogError({ bucket, error, onClose }) {
-  return (
-    <>
-      <DialogTitle bucket={bucket} />
-      <ContentPlaceholder animate={false} error={error} />
-      <ActionsPlaceholder onCancel={onClose} />
-    </>
+    <PD.DialogError
+      error={error}
+      title={
+        <>
+          Promote package to{' '}
+          <StyledLink target="_blank" to={urls.bucketOverview(bucket)}>
+            {bucket}
+          </StyledLink>{' '}
+          bucket
+        </>
+      }
+      onCancel={onCancel}
+    />
   )
 }
 
@@ -406,12 +347,7 @@ function DialogSuccess({ bucket, name, revision, onClose }) {
   )
 }
 
-const DialogState = tagged([
-  'Loading',
-  'Error',
-  'Form', // { manifest, workflowsConfig }
-  'Success', // { name, revision }
-])
+const DialogState = tagged(['Loading', 'Error', 'Form', 'Success'])
 
 export default function PackageCopyDialog({
   sourceBucket,

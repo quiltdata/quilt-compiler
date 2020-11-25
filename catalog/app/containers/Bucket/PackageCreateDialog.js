@@ -657,11 +657,11 @@ export default function PackageCreateDialogWrapper({ bucket, open, onClose, refr
         }}
       />
     ),
-    Err: (error) => {
-      // eslint-disable-next-line no-console
-      console.error(error)
-      return null
-    },
+    Err: (error) => (
+      <M.Dialog open={open} onClose={onClose} fullWidth scroll="body">
+        <PD.DialogError error={error} title="Push package" onCancel={onClose} />
+      </M.Dialog>
+    ),
     _: () => (
       <M.Dialog open={open} onClose={onClose} fullWidth scroll="body">
         <PD.DialogLoading title="Push package" onCancel={onClose} />
