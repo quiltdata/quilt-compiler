@@ -23,7 +23,7 @@ function MenuPlaceholder() {
   const t = M.useTheme()
 
   return (
-    <M.Box minWidth={t.spacing(30)}>
+    <M.Box minWidth={t.spacing(22)}>
       <M.MenuItem disabled>
         <Lab.Skeleton height={t.spacing(4)} width="100%" />
       </M.MenuItem>
@@ -98,6 +98,15 @@ export default function CopyButton({ bucket, onChange }) {
         className={classes.menu}
         onClose={onMenuClose}
         open={!!menuAnchorEl}
+        getContentAnchorEl={null}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
       >
         <BucketsListFetcher bucket={bucket}>
           {AsyncResult.case({

@@ -124,7 +124,7 @@ function DialogForm({
         values,
       }) => (
         <>
-          <M.DialogTitle>Copy package to &quot;{bucket}&quot; bucket</M.DialogTitle>
+          <M.DialogTitle>Promote package to &quot;{bucket}&quot; bucket</M.DialogTitle>
           <M.DialogContent style={{ paddingTop: 0 }}>
             <form onSubmit={handleSubmit}>
               <RF.Field
