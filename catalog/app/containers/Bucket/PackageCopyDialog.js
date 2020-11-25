@@ -2,6 +2,7 @@ import * as R from 'ramda'
 import { FORM_ERROR } from 'final-form'
 import * as React from 'react'
 import * as RF from 'react-final-form'
+import { Link } from 'react-router-dom'
 import * as M from '@material-ui/core'
 import { fade } from '@material-ui/core/styles'
 
@@ -10,8 +11,10 @@ import * as AWS from 'utils/AWS'
 import * as Data from 'utils/Data'
 import Delay from 'utils/Delay'
 import Dropzone, { Overlay as DropzoneOverlay } from 'components/Dropzone'
+import * as NamedRoutes from 'utils/NamedRoutes'
 import { getBasename } from 'utils/s3paths'
 import { readableBytes } from 'utils/string'
+import StyledLink from 'utils/StyledLink'
 import tagged from 'utils/tagged'
 import * as validators from 'utils/validators'
 
@@ -80,6 +83,20 @@ export function FilesInput({ input: { value: inputValue }, meta }) {
   )
 }
 
+function DialogTitle({ bucket }) {
+  const { urls } = NamedRoutes.use()
+
+  return (
+    <M.DialogTitle>
+      Promote package to{' '}
+      <StyledLink target="_blank" to={urls.bucketOverview(bucket)}>
+        {bucket}
+      </StyledLink>{' '}
+      bucket
+    </M.DialogTitle>
+  )
+}
+
 function DialogForm({
   bucket,
   name: initialName,
@@ -124,7 +141,7 @@ function DialogForm({
         values,
       }) => (
         <>
-          <M.DialogTitle>Promote package to &quot;{bucket}&quot; bucket</M.DialogTitle>
+          <DialogTitle bucket={bucket} />
           <M.DialogContent style={{ paddingTop: 0 }}>
             <form onSubmit={handleSubmit}>
               <RF.Field
@@ -309,48 +326,78 @@ const errorDisplay = R.cond([
   ],
 ])
 
-function DialogError({ error, close }) {
+function ActionsPlaceholder({ onCancel }) {
+  return (
+    <M.DialogActions>
+      <M.Button onClick={onCancel}>Cancel</M.Button>
+      <M.Button variant="contained" color="primary" disabled>
+        Push
+      </M.Button>
+    </M.DialogActions>
+  )
+}
+
+function ContentPlaceholder({ animate, error }) {
   const classes = useDialogErrorStyles()
   return (
-    <>
-      <M.DialogTitle>Copy package</M.DialogTitle>
-      <M.DialogContent style={{ paddingTop: 0, position: 'relative' }}>
-        <PD.FormSkeleton animate={false} />
-        <div className={classes.overlay}>{errorDisplay(error)}</div>
-      </M.DialogContent>
-      <M.DialogActions>
-        <M.Button onClick={close}>Cancel</M.Button>
-        <M.Button variant="contained" color="primary" disabled>
-          Push
-        </M.Button>
-      </M.DialogActions>
-    </>
+    <M.DialogContent style={{ paddingTop: 0, position: 'relative' }}>
+      <PD.FormSkeleton animate={animate} />
+      {error && <div className={classes.overlay}>{errorDisplay(error)}</div>}
+    </M.DialogContent>
   )
 }
 
-function DialogPlaceholder({ bucket, close }) {
+function DialogError({ bucket, error, onClose }) {
   return (
     <>
-      <M.DialogTitle>Copy package to &quot;{bucket}&quot; bucket</M.DialogTitle>
-      <M.DialogContent style={{ paddingTop: 0 }}>
-        <PD.FormSkeleton />
-      </M.DialogContent>
-      <M.DialogActions>
-        <M.Button onClick={close}>Cancel</M.Button>
-        <M.Button variant="contained" color="primary" disabled>
-          Push
-        </M.Button>
-      </M.DialogActions>
+      <DialogTitle bucket={bucket} />
+      <ContentPlaceholder animate={false} error={error} />
+      <ActionsPlaceholder onCancel={onClose} />
     </>
   )
 }
 
-function DialogSuccess() {
-  return <h1>DialogSuccess</h1>
+function DialogLoading({ bucket, onClose }) {
+  return (
+    <>
+      <DialogTitle bucket={bucket} />
+      <ContentPlaceholder />
+      <ActionsPlaceholder onCancel={onClose} />
+    </>
+  )
+}
+
+function DialogSuccess({ bucket, name, revision, onClose }) {
+  const { urls } = NamedRoutes.use()
+
+  return (
+    <>
+      <M.DialogTitle>Promotion is complete</M.DialogTitle>
+      <M.DialogContent style={{ paddingTop: 0 }}>
+        <M.Typography>
+          Package revision{' '}
+          <StyledLink to={urls.bucketPackageTree(bucket, name, revision)}>
+            {name}@{revision}
+          </StyledLink>{' '}
+          successfully created
+        </M.Typography>
+      </M.DialogContent>
+      <M.DialogActions>
+        <M.Button onClick={onClose}>Close</M.Button>
+        <M.Button
+          component={Link}
+          to={urls.bucketPackageTree(bucket, name, revision)}
+          variant="contained"
+          color="primary"
+        >
+          Browse
+        </M.Button>
+      </M.DialogActions>
+    </>
+  )
 }
 
 const DialogState = tagged([
-  'Closed',
   'Loading',
   'Error',
   'Form', // { manifest, workflowsConfig }
@@ -378,7 +425,6 @@ export default function PackageCopyDialog({
   const workflowsData = Data.use(requests.workflowsList, { s3, bucket: targetBucket })
 
   const state = React.useMemo(() => {
-    // if (exited) return DialogState.Closed()
     if (success) return DialogState.Success(success)
     return workflowsData.case({
       Ok: (workflowsConfig) =>
@@ -397,9 +443,8 @@ export default function PackageCopyDialog({
   return (
     <M.Dialog open onClose={onClose} fullWidth scroll="body">
       {stateCase({
-        Closed: () => null,
-        Loading: () => <DialogPlaceholder bucket={targetBucket} close={onClose} />,
-        Error: (e) => <DialogError close={onClose} error={e} />,
+        Error: (e) => <DialogError bucket={targetBucket} onClose={onClose} error={e} />,
+        Loading: () => <DialogLoading bucket={targetBucket} onClose={onClose} />,
         Form: (props) => (
           <DialogForm
             {...{
@@ -411,7 +456,14 @@ export default function PackageCopyDialog({
             }}
           />
         ),
-        Success: (props) => <DialogSuccess {...{ bucket: targetBucket, ...props }} />,
+        Success: (props) => (
+          <DialogSuccess
+            bucket={targetBucket}
+            name={props.name}
+            revision={props.revision}
+            onClose={onClose}
+          />
+        ),
       })}
     </M.Dialog>
   )
