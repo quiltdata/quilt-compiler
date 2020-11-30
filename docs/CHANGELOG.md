@@ -9,6 +9,7 @@
 
 # unreleased - YYYY-MM-DD
 ## Python API
+* [Changed] Decrease size of `Package` in-memory representation ([#1943](https://github.com/quiltdata/quilt/pull/1943))
 
 ## CLI
 

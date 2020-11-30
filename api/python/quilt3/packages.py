@@ -1,3 +1,4 @@
+import functools
 import gc
 import hashlib
 import inspect
@@ -338,6 +339,26 @@ class PackageRevInfo:
         self.registry = registry
         self.name = name
         self.top_hash = top_hash
+
+
+class ManifestJSONDecoder(json.JSONDecoder):
+    """
+    Standard json.JSONDecoder reuses same `str` objects for JSON properties, while doing
+    a single `decode()` call.
+    This class also reuses `str` between many `decode()`s.
+    """
+    def __init__(self, *args, **kwargs):
+        @functools.lru_cache(maxsize=None)
+        def memoize_key(s):
+            return s
+
+        def object_pairs_hook(items):
+            return {
+                memoize_key(k): v
+                for k, v in items
+            }
+
+        super().__init__(*args, object_pairs_hook=object_pairs_hook, **kwargs)
 
 
 class Package:
@@ -757,7 +778,7 @@ class Package:
                     disable=DISABLE_TQDM,
                     bar_format='{l_bar}{bar}| {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
                 ),
-                loads=json.loads,
+                loads=ManifestJSONDecoder().decode,
             )
             meta = reader.read()
             meta.pop('top_hash', None)  # Obsolete as of PR #130
