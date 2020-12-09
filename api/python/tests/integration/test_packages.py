@@ -131,6 +131,7 @@ class PackageTest(QuiltTestCase):
                 },
                 expected_params={
                     'Bucket': pkg_registry.root.bucket,
+                    'VersionId': 'v1',
                     'Key': pkg_registry.manifest_pk(pkg_name, top_hash).path,
                 }
             )

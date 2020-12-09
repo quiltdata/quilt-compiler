@@ -512,6 +512,53 @@ class DataTransferTest(QuiltTestCase):
             with pytest.raises(ClientError):
                 data_transfer.copy_file_list([(src, dst, size)])
 
+    @mock.patch.multiple(
+        'quilt3.data_transfer.s3_transfer_config',
+        multipart_threshold=1,
+        multipart_chunksize=1,
+        max_request_concurrency=1,
+    )
+    def test_download_latest_in_versioned_bucket(self):
+        bucket = 'example'
+        key = 'foo.csv'
+        src = PhysicalKey(bucket, key, None)
+        latest_version = '1'
+        latest_size = 3
+
+        # Check what is the latest version and size.
+        expected_params = {
+            'Bucket': bucket,
+            'Key': key,
+        }
+        self.s3_stubber.add_response(
+            'head_object',
+            service_response={
+                'VersionId': latest_version,
+                'ContentLength': latest_size,
+            },
+            expected_params=expected_params,
+        )
+        for i in range(latest_size):
+            self.s3_stubber.add_response(
+                'get_object',
+                service_response={
+                    'Body': io.BytesIO(b'0'),
+                },
+                expected_params={
+                    **expected_params,
+                    'Range': f'bytes={i}-{i}',
+                    # Version must be specified, otherwise we will end with
+                    # a truncated file if the file was modified after getting the latest
+                    # version/size.
+                    'VersionId': latest_version,
+                },
+            )
+
+        data_transfer.copy_file(
+            src,
+            PhysicalKey.from_path('some-file'),
+        )
+
 
 class Success(Exception):
     pass

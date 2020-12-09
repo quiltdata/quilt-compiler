@@ -806,7 +806,9 @@ def copy_file(src: PhysicalKey, dest: PhysicalKey, size=None, message=None, call
         if _looks_like_dir(dest):
             dest = dest.join(src.basename())
         if size is None:
-            size, _ = get_size_and_version(src)
+            size, version_id = get_size_and_version(src)
+            if src.version_id is None:
+                src = PhysicalKey(src.bucket, src.path, version_id)
         url_list.append((src, dest, size))
 
     _copy_file_list_internal(url_list, [None] * len(url_list), message, callback)
