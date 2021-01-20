@@ -92,7 +92,7 @@ const useFilesInputStyles = M.makeStyles((t) => ({
   },
   filesContainer: {
     borderBottom: `1px solid ${t.palette.action.disabled}`,
-    maxHeight: t.spacing(68),
+    maxHeight: t.spacing(40),
     overflowX: 'hidden',
     overflowY: 'auto',
   },
@@ -329,9 +329,6 @@ const useStyles = M.makeStyles((t) => ({
   files: {
     display: 'flex',
     flexDirection: 'column',
-    height: '100%',
-  },
-  meta: {
     marginTop: t.spacing(3),
   },
 }))
@@ -641,27 +638,19 @@ function PackageCreateDialog({
                         }}
                       />
 
-                      <PD.SchemaFetcher
-                        schemaUrl={R.pathOr('', ['schema', 'url'], workflow)}
-                      >
-                        {AsyncResult.case({
-                          Ok: ({ responseError, schema, validate }) => (
-                            <RF.Field
-                              className={classes.meta}
-                              component={PD.MetaInput}
-                              name="meta"
-                              bucket={bucket}
-                              schema={schema}
-                              schemaError={responseError}
-                              validate={validate}
-                              validateFields={['meta']}
-                              isEqual={R.equals}
-                              initialValue={PD.EMPTY_META_VALUE}
-                            />
-                          ),
-                          _: () => <PD.MetaInputSkeleton className={classes.meta} />,
-                        })}
-                      </PD.SchemaFetcher>
+                      <RF.Field
+                        className={classes.files}
+                        component={FilesInput}
+                        name="files"
+                        validate={validators.nonEmpty}
+                        validateFields={['files']}
+                        errors={{
+                          nonEmpty: 'Add files to create a package',
+                        }}
+                        uploads={uploads}
+                        setUploads={setUploads}
+                        isEqual={R.equals}
+                      />
 
                       <RF.Field
                         component={PD.WorkflowInput}
@@ -677,19 +666,26 @@ function PackageCreateDialog({
                     </PD.LeftColumn>
 
                     <PD.RightColumn>
-                      <RF.Field
-                        className={classes.files}
-                        component={FilesInput}
-                        name="files"
-                        validate={validators.nonEmpty}
-                        validateFields={['files']}
-                        errors={{
-                          nonEmpty: 'Add files to create a package',
-                        }}
-                        uploads={uploads}
-                        setUploads={setUploads}
-                        isEqual={R.equals}
-                      />
+                      <PD.SchemaFetcher
+                        schemaUrl={R.pathOr('', ['schema', 'url'], workflow)}
+                      >
+                        {AsyncResult.case({
+                          Ok: ({ responseError, schema, validate }) => (
+                            <RF.Field
+                              component={PD.MetaInput}
+                              name="meta"
+                              bucket={bucket}
+                              schema={schema}
+                              schemaError={responseError}
+                              validate={validate}
+                              validateFields={['meta']}
+                              isEqual={R.equals}
+                              initialValue={PD.EMPTY_META_VALUE}
+                            />
+                          ),
+                          _: () => <PD.MetaInputSkeleton className={classes.meta} />,
+                        })}
+                      </PD.SchemaFetcher>
                     </PD.RightColumn>
                   </PD.Container>
 
